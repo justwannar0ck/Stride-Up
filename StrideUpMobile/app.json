@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "StrideUp",
+    "slug": "strideup",
+    "version": "1.0.0", 
+    "orientation": "portrait",
+    "icon": "./assets/images/logo.jpg",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#5c5f3d"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.strideup.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logo.jpg",
+        "backgroundColor": "#5c5f3d"
+      },
+      "package": "com.strideup.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "StrideUp needs access to your location to track your activities and show your routes on the map.",
+          "locationAlwaysPermission": "StrideUp needs access to your location to track your activities even when the app is in the background.",
+          "locationWhenInUsePermission":  "StrideUp needs access to your location to track your activities.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-task-manager"
+      ]
+    ],
+    "extra": {
+      "eas":  {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}
