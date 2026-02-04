@@ -3,9 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
-from django.db.models import Sum, Avg, Max, Min, Count
+from django.db.models import Sum, Avg, Max, Min, Count, Q
 from datetime import timedelta
-from .models import Activity, GPSPoint, ActivityPause
+from .models import Activity, GPSPoint, ActivityPause, ActivityLike
 from .serializers import (
     ActivityCreateSerializer,
     ActivityUpdateSerializer,
@@ -15,6 +15,7 @@ from .serializers import (
     GPSBatchUploadSerializer,
     ActivityPauseSerializer,
 )
+from Users.models import Follow
 
 
 class ActivityViewSet(viewsets.ModelViewSet):
@@ -25,7 +26,33 @@ class ActivityViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return Activity.objects.filter(user=self.request.user)
+        user = self.request.user
+        
+        # For list action, only show user's own activities
+        if self.action == 'list':
+            return Activity.objects.filter(user=user)
+        
+        # For retrieve (detail view), allow viewing:
+        # 1. Own activities
+        # 2. Public activities
+        # 3. Followers-only activities from users we follow
+        if self.action == 'retrieve':
+            following_ids = Follow.objects.filter(
+                follower=user
+            ).values_list('following_id', flat=True)
+            
+            return Activity.objects.filter(
+                Q(user=user) |  # Own activities
+                Q(visibility=Activity.Visibility.PUBLIC, status=Activity.Status.COMPLETED) |  # Public
+                Q(
+                    visibility=Activity.Visibility.FOLLOWERS,
+                    status=Activity.Status.COMPLETED,
+                    user_id__in=following_ids
+                )  # Followers-only from people we follow
+            )
+        
+        # For other actions (update, delete, etc.), only own activities
+        return Activity.objects.filter(user=user)
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -172,6 +199,81 @@ class ActivityViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         
         return Response({'message': 'No active activity'}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'])
+    def like(self, request, pk=None):
+        """Like/give kudos to an activity."""
+        activity = self.get_object()
+        
+        # Can't like your own activity
+        if activity.user == request.user:
+            return Response(
+                {'error': 'You cannot like your own activity'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if already liked
+        from .models import ActivityLike
+        like, created = ActivityLike.objects.get_or_create(
+            activity=activity,
+            user=request.user
+        )
+        
+        if not created:
+            return Response(
+                {'error': 'You have already liked this activity'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'message': 'Activity liked',
+            'likes_count': activity.likes.count()
+        }, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['post'])
+    def unlike(self, request, pk=None):
+        """Remove like/kudos from an activity."""
+        activity = self.get_object()
+        
+        from .models import ActivityLike
+        deleted, _ = ActivityLike.objects.filter(
+            activity=activity,
+            user=request.user
+        ).delete()
+        
+        if deleted:
+            return Response({
+                'message': 'Like removed',
+                'likes_count': activity.likes.count()
+            })
+        
+        return Response(
+            {'error': 'You have not liked this activity'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    @action(detail=True, methods=['get'])
+    def likes(self, request, pk=None):
+        """Get list of users who liked an activity."""
+        activity = self.get_object()
+        
+        from .models import ActivityLike
+        likes = ActivityLike.objects.filter(activity=activity).select_related('user')
+        
+        users = []
+        for like in likes:
+            users.append({
+                'id': like.user.id,
+                'username': like.user.username,
+                'full_name': like.user.get_full_name(),
+                'profile_picture': None,
+                'liked_at': like.created_at.isoformat(),
+            })
+        
+        return Response({
+            'count': len(users),
+            'results': users
+        })
 
 
 class UserStatisticsView(APIView):
@@ -270,3 +372,185 @@ class UserStatisticsView(APIView):
         }
         
         return Response(response_data)
+    
+class FeedView(APIView):
+    """
+    Get activity feed from users the current user follows.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        
+        # Get list of user IDs that the current user follows
+        following_ids = Follow.objects.filter(
+            follower=user
+        ).values_list('following_id', flat=True)
+        
+        # Get activities from followed users
+        activities = Activity.objects.filter(
+            Q(user_id__in=following_ids) & 
+            Q(status=Activity.Status.COMPLETED) &
+            (
+                Q(visibility=Activity.Visibility.PUBLIC) |
+                Q(visibility=Activity.Visibility.FOLLOWERS)
+            )
+        ).select_related('user').prefetch_related('likes').order_by('-started_at')
+        
+        # Pagination
+        page = int(request.query_params.get('page', 1))
+        limit = int(request.query_params.get('limit', 20))
+        offset = (page - 1) * limit
+        
+        total_count = activities.count()
+        activities_page = activities[offset:offset + limit]
+        
+        # Serialize the activities
+        serialized_activities = []
+        for activity in activities_page:
+            serialized_activities.append({
+                'id': activity.id,
+                'user': {
+                    'id': activity.user.id,
+                    'username': activity.user.username,
+                    'full_name': activity.user.get_full_name(),
+                    'profile_picture': None,
+                },
+                'title': activity.title,
+                'description': activity.description,
+                'activity_type': activity.activity_type,
+                'distance_km': activity.distance_km,
+                'duration_formatted': activity.duration_formatted,
+                'pace_formatted': activity.pace_formatted,
+                'elevation_gain': activity.elevation_gain,
+                'calories_burned': activity.calories_burned,
+                'started_at': activity.started_at.isoformat(),
+                'visibility': activity.visibility,
+                'route_geojson': activity.get_route_for_display() if not activity.hide_start_end else None,
+                'likes_count': activity.likes.count(),
+                'is_liked': activity.likes.filter(user=user).exists(),
+            })
+        
+        return Response({
+            'count': total_count,
+            'page': page,
+            'limit': limit,
+            'has_more': offset + limit < total_count,
+            'results': serialized_activities,
+        })
+        
+class ActivityLikeView(APIView):
+    """Handle liking/unliking activities."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_activity(self, pk, user):
+        """Get activity if user has permission to view it."""
+        following_ids = Follow.objects.filter(
+            follower=user
+        ).values_list('following_id', flat=True)
+        
+        try:
+            return Activity.objects.get(
+                Q(pk=pk) & (
+                    Q(user=user) |
+                    Q(visibility=Activity.Visibility.PUBLIC, status=Activity.Status.COMPLETED) |
+                    Q(
+                        visibility=Activity.Visibility.FOLLOWERS,
+                        status=Activity.Status.COMPLETED,
+                        user_id__in=following_ids
+                    )
+                )
+            )
+        except Activity.DoesNotExist:
+            return None
+    
+    def post(self, request, pk):
+        """Like an activity."""
+        activity = self.get_activity(pk, request.user)
+        
+        if not activity:
+            return Response(
+                {'error': 'Activity not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Can't like your own activity
+        if activity.user == request.user:
+            return Response(
+                {'error': 'You cannot like your own activity'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if already liked
+        like, created = ActivityLike.objects.get_or_create(
+            activity=activity,
+            user=request.user
+        )
+        
+        if not created:
+            return Response(
+                {'error': 'You have already liked this activity'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return Response({
+            'message': 'Activity liked',
+            'likes_count': activity.likes.count()
+        }, status=status.HTTP_201_CREATED)
+    
+    def delete(self, request, pk):
+        """Unlike an activity."""
+        activity = self.get_activity(pk, request.user)
+        
+        if not activity:
+            return Response(
+                {'error': 'Activity not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        deleted, _ = ActivityLike.objects.filter(
+            activity=activity,
+            user=request.user
+        ).delete()
+        
+        if deleted:
+            return Response({
+                'message': 'Like removed',
+                'likes_count': activity.likes.count()
+            })
+        
+        return Response(
+            {'error': 'You have not liked this activity'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class ActivityLikesListView(APIView):
+    """Get list of users who liked an activity."""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request, pk):
+        try:
+            activity = Activity.objects.get(pk=pk)
+        except Activity.DoesNotExist:
+            return Response(
+                {'error': 'Activity not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        likes = ActivityLike.objects.filter(activity=activity).select_related('user')
+        
+        users = []
+        for like in likes:
+            users.append({
+                'id': like.user.id,
+                'username': like.user.username,
+                'full_name': like.user.get_full_name(),
+                'profile_picture': None,
+                'liked_at': like.created_at.isoformat(),
+            })
+        
+        return Response({
+            'count': len(users),
+            'results': users
+        })

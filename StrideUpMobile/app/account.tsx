@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,37 +8,42 @@ import {
   Alert,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from './context/AuthContext';
-import api from './api';
-
-interface UserData {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-}
+import { followService, UserProfile } from './services/followService';
 
 export default function AccountScreen() {
   const router = useRouter();
   const { logout } = useAuth();
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
-  useEffect(() => {
-    fetchUserData();
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch profile and follow requests in parallel
+      const [profileData, requestsData] = await Promise.all([
+        followService.getMyProfile(),
+        followService.getFollowRequests(),
+      ]);
+      
+      setProfile(profileData);
+      setPendingRequestsCount(requestsData.count);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchUserData = async () => {
-    try {
-      const response = await api.get('/auth/users/me/');
-      setUserData(response.data);
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
-    }
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -49,13 +54,28 @@ export default function AccountScreen() {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress:  async () => {
+          onPress: async () => {
             await logout();
-            // Navigation happens automatically via AuthContext
           },
         },
       ]
     );
+  };
+
+  const navigateToFollowers = () => {
+    if (profile) {
+      router.push(`/followers/${profile.username}`);
+    }
+  };
+
+  const navigateToFollowing = () => {
+    if (profile) {
+      router.push(`/following/${profile.username}`);
+    }
+  };
+
+  const navigateToFollowRequests = () => {
+    router.push('/follow-requests');
   };
 
   return (
@@ -66,11 +86,11 @@ export default function AccountScreen() {
         <View style={styles.header}>
           <TouchableOpacity 
             onPress={() => router.back()} 
-            style={styles. backButton}
+            style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={24} color="#d9e3d0" />
           </TouchableOpacity>
-          <Text style={styles. headerTitle}>Account</Text>
+          <Text style={styles.headerTitle}>Account</Text>
           <View style={styles.placeholder} />
         </View>
       </View>
@@ -81,18 +101,63 @@ export default function AccountScreen() {
           <View style={styles.avatarLarge}>
             <Ionicons name="person" size={48} color="#8a8d6a" />
           </View>
-          {userData ? (
+          
+          {loading ? (
+            <ActivityIndicator size="small" color="#d9e3d0" style={{ marginTop: 16 }} />
+          ) : profile ? (
             <>
-              <Text style={styles. userName}>
-                {userData.first_name} {userData.last_name}
+              <Text style={styles.userName}>
+                {profile.full_name || profile.username}
               </Text>
-              <Text style={styles.userHandle}>@{userData.username}</Text>
-              <Text style={styles.userEmail}>{userData.email}</Text>
+              <Text style={styles.userHandle}>@{profile.username}</Text>
+              
+              {/* Followers/Following Stats */}
+              <View style={styles.statsRow}>
+                <TouchableOpacity 
+                  style={styles.statItem} 
+                  onPress={navigateToFollowers}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.statNumber}>{profile.followers_count}</Text>
+                  <Text style={styles.statLabel}>Followers</Text>
+                </TouchableOpacity>
+                
+                <View style={styles.statDivider} />
+                
+                <TouchableOpacity 
+                  style={styles.statItem} 
+                  onPress={navigateToFollowing}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.statNumber}>{profile.following_count}</Text>
+                  <Text style={styles.statLabel}>Following</Text>
+                </TouchableOpacity>
+              </View>
             </>
           ) : (
-            <Text style={styles. loadingText}>Loading...</Text>
+            <Text style={styles.loadingText}>Failed to load profile</Text>
           )}
         </View>
+
+        {/* Follow Requests (only show if there are pending requests) */}
+        {pendingRequestsCount > 0 && (
+          <TouchableOpacity 
+            style={styles.followRequestsBanner}
+            onPress={navigateToFollowRequests}
+            activeOpacity={0.7}
+          >
+            <View style={styles.followRequestsLeft}>
+              <Ionicons name="person-add" size={22} color="#d9e3d0" />
+              <Text style={styles.followRequestsText}>Follow Requests</Text>
+            </View>
+            <View style={styles.followRequestsRight}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendingRequestsCount}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -104,11 +169,28 @@ export default function AccountScreen() {
           
           <TouchableOpacity style={styles.menuItem}>
             <Ionicons name="lock-closed-outline" size={22} color="#d9e3d0" />
-            <Text style={styles. menuText}>Privacy Settings</Text>
+            <Text style={styles.menuText}>Privacy Settings</Text>
             <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles. menuItem}>
+          {/* Follow Requests menu item (always visible, with badge if pending) */}
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={navigateToFollowRequests}
+          >
+            <Ionicons name="person-add-outline" size={22} color="#d9e3d0" />
+            <Text style={styles.menuText}>Follow Requests</Text>
+            <View style={styles.menuRight}>
+              {pendingRequestsCount > 0 && (
+                <View style={styles.menuBadge}>
+                  <Text style={styles.menuBadgeText}>{pendingRequestsCount}</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
+            </View>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.menuItem}>
             <Ionicons name="notifications-outline" size={22} color="#d9e3d0" />
             <Text style={styles.menuText}>Notifications</Text>
             <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
@@ -146,7 +228,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     backgroundColor: '#4a4d2e',
-    paddingTop: Platform.OS === 'ios' ?  50 : (StatusBar.currentHeight || 30) + 10,
+    paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 30) + 10,
   },
   header: {
     flexDirection: 'row',
@@ -178,17 +260,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   avatarLarge: {
-    width:  100,
+    width: 100,
     height: 100,
     borderRadius: 50,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
-    alignItems:  'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
   userName: {
-    fontSize:  24,
-    fontWeight:  'bold',
+    fontSize: 24,
+    fontWeight: 'bold',
     color: '#d9e3d0',
   },
   userHandle: {
@@ -196,15 +278,79 @@ const styles = StyleSheet.create({
     color: '#8a8d6a',
     marginTop: 4,
   },
-  userEmail: {
-    fontSize: 12,
-    color: '#b8c4a8',
-    marginTop: 4,
-  },
   loadingText: {
-    fontSize:  16,
+    fontSize: 16,
     color: '#8a8d6a',
   },
+  // Stats Row
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  statItem: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+  },
+  statNumber: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#d9e3d0',
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#8a8d6a',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  // Follow Requests Banner
+  followRequestsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(217, 227, 208, 0.15)',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(217, 227, 208, 0.3)',
+  },
+  followRequestsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  followRequestsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#d9e3d0',
+    marginLeft: 12,
+  },
+  followRequestsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  badge: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginRight: 8,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  // Menu Section
   menuSection: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 16,
@@ -213,8 +359,8 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     flexDirection: 'row',
-    alignItems:  'center',
-    padding:  16,
+    alignItems: 'center',
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
@@ -223,9 +369,28 @@ const styles = StyleSheet.create({
   },
   menuText: {
     flex: 1,
-    fontSize:  16,
+    fontSize: 16,
     color: '#d9e3d0',
     marginLeft: 16,
+  },
+  menuRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuBadge: {
+    backgroundColor: '#e74c3c',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    marginRight: 8,
+  },
+  menuBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   logoutButton: {
     flexDirection: 'row',
@@ -238,7 +403,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
-    color:  '#e74c3c',
+    color: '#e74c3c',
     marginLeft: 8,
     fontWeight: '600',
   },

@@ -72,11 +72,11 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="map"
+          name="feed"
           options={{
-            title: 'Map',
+            title: 'Feed',
             tabBarIcon: ({ focused }) => (
-              <TabIcon name="map-outline" focused={focused} label="Map" />
+              <TabIcon name="newspaper-outline" focused={focused} label="Feed" />
             ),
           }}
         />
@@ -114,6 +114,12 @@ export default function TabLayout() {
             tabBarIcon: ({ focused }) => (
               <TabIcon name="people-outline" focused={focused} label="Community" />
             ),
+          }}
+        />
+        <Tabs.Screen
+          name="map"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

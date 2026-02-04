@@ -39,6 +39,8 @@ export interface Activity {
   } | null;
   start_location: { latitude: number; longitude: number } | null;
   end_location: { latitude: number; longitude:  number } | null;
+  likes_count: number;
+  is_liked: boolean;
 }
 
 export interface UserStatistics {

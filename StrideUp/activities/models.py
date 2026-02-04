@@ -455,3 +455,30 @@ class ActivityPause(models.Model):
         if self.resumed_at:
             return self.resumed_at - self.paused_at
         return None
+    
+class ActivityLike(models.Model):
+    """
+    Model to track likes/kudos on activities.
+    """
+    
+    activity = models.ForeignKey(
+        Activity,
+        on_delete=models.CASCADE,
+        related_name='likes'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='activity_likes'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('activity', 'user')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['activity', 'user']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} liked {self.activity.title}"

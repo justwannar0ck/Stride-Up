@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.gis.geos import LineString, Point
 from django.utils import timezone
-from .models import Activity, GPSPoint, ActivityPause
+from .models import Activity, GPSPoint, ActivityPause, ActivityLike
 
 
 class GPSPointSerializer(serializers.ModelSerializer):
@@ -103,64 +103,92 @@ class ActivityCompleteSerializer(serializers.Serializer):
     )
     hide_start_end = serializers.BooleanField(required=False)
 
-
+# Update ActivityListSerializer - add these fields
 class ActivityListSerializer(serializers.ModelSerializer):
-    """Serializer for listing activities (minimal data)"""
-    
-    distance_km = serializers.ReadOnlyField()
-    pace_formatted = serializers.ReadOnlyField()
-    duration_formatted = serializers.ReadOnlyField()
     user_username = serializers.CharField(source='user.username', read_only=True)
+    distance_km = serializers.FloatField(read_only=True)
+    duration_formatted = serializers.CharField(read_only=True)
+    pace_formatted = serializers.CharField(read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
     
     class Meta:
         model = Activity
         fields = [
-            'id', 'user_username', 'title', 'activity_type', 'status',
-            'distance_km', 'duration_formatted', 'pace_formatted',
-            'average_speed', 'elevation_gain', 'calories_burned',
-            'started_at', 'finished_at', 'visibility', 'created_at'
+            'id', 'user_username', 'title', 'description', 'activity_type',
+            'status', 'distance', 'distance_km', 'duration', 'duration_formatted',
+            'average_pace', 'pace_formatted', 'started_at', 'finished_at',
+            'visibility', 'likes_count', 'is_liked'
         ]
-
-
-class ActivityDetailSerializer(serializers.ModelSerializer):
-    """Serializer for detailed activity view with route"""
     
-    distance_km = serializers.ReadOnlyField()
-    pace_formatted = serializers.ReadOnlyField()
-    duration_formatted = serializers.ReadOnlyField()
+    def get_likes_count(self, obj):
+        return obj.likes.count()
+    
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+
+# Update ActivityDetailSerializer - add these fields
+class ActivityDetailSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
-    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
-    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    distance_km = serializers.FloatField(read_only=True)
+    duration_formatted = serializers.CharField(read_only=True)
+    pace_formatted = serializers.CharField(read_only=True)
     route_geojson = serializers.SerializerMethodField()
     start_location = serializers.SerializerMethodField()
     end_location = serializers.SerializerMethodField()
-    pauses = ActivityPauseSerializer(many=True, read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
     
     class Meta:
         model = Activity
         fields = [
-            'id', 'user_username', 'user_first_name', 'user_last_name',
-            'title', 'description', 'activity_type', 'status',
-            'distance', 'distance_km', 'duration', 'duration_formatted',
-            'total_elapsed_time', 'average_pace', 'pace_formatted',
-            'average_speed', 'max_speed', 'elevation_gain', 'elevation_loss',
-            'calories_burned', 'started_at', 'finished_at',
-            'visibility', 'hide_start_end', 'route_geojson',
-            'start_location', 'end_location', 'pauses',
-            'weather_temp', 'weather_condition', 'created_at'
+            'id', 'user_username', 'title', 'description', 'activity_type',
+            'status', 'distance', 'distance_km', 'duration', 'duration_formatted',
+            'total_elapsed_time', 'average_pace', 'pace_formatted', 'average_speed',
+            'max_speed', 'elevation_gain', 'elevation_loss', 'calories_burned',
+            'started_at', 'finished_at', 'visibility', 'hide_start_end',
+            'route_geojson', 'start_location', 'end_location',
+            'likes_count', 'is_liked'
         ]
     
     def get_route_geojson(self, obj):
         return obj.get_route_for_display()
     
     def get_start_location(self, obj):
-        point = obj.masked_start_point if obj.hide_start_end else obj.start_point
-        if point:
-            return {'latitude': point.y, 'longitude': point.x}
+        if obj.hide_start_end and obj.masked_start_point:
+            return {
+                'latitude': obj.masked_start_point.y,
+                'longitude': obj.masked_start_point.x
+            }
+        elif obj.start_point:
+            return {
+                'latitude': obj.start_point.y,
+                'longitude': obj.start_point.x
+            }
         return None
     
     def get_end_location(self, obj):
-        point = obj.masked_end_point if obj.hide_start_end else obj.end_point
-        if point:
-            return {'latitude': point.y, 'longitude': point.x}
+        if obj.hide_start_end and obj.masked_end_point:
+            return {
+                'latitude': obj.masked_end_point.y,
+                'longitude': obj.masked_end_point.x
+            }
+        elif obj.end_point:
+            return {
+                'latitude': obj.end_point.y,
+                'longitude': obj.end_point.x
+            }
         return None
+    
+    def get_likes_count(self, obj):
+        return obj.likes.count()
+    
+    def get_is_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
