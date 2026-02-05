@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from .models import User, Follow, FollowRequest
+from .models import User, Follow, FollowRequest, PrivacyZone, UserPrivacySettings
 from djoser.serializers import UserCreateSerializer as BaseUserCreateSerializer
 from djoser.serializers import UserSerializer as BaseUserSerializer
+from django.contrib.gis.geos import Point
 
 class UserCreateSerializer(BaseUserCreateSerializer):
     class Meta(BaseUserCreateSerializer.Meta):
@@ -150,3 +151,47 @@ class PendingFollowRequestSerializer(serializers.ModelSerializer):
     
     def get_user(self, obj):
         return UserMinimalSerializer(obj.from_user).data
+    
+class PrivacyZoneSerializer(serializers.ModelSerializer):
+    latitude = serializers.FloatField(write_only=True)
+    longitude = serializers.FloatField(write_only=True)
+    center_latitude = serializers.SerializerMethodField(read_only=True)
+    center_longitude = serializers.SerializerMethodField(read_only=True)
+    
+    class Meta:
+        model = PrivacyZone
+        fields = [
+            'id', 'name', 'latitude', 'longitude',
+            'center_latitude', 'center_longitude',
+            'radius', 'is_active', 'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+    
+    def get_center_latitude(self, obj):
+        return obj.center.y if obj.center else None
+    
+    def get_center_longitude(self, obj):
+        return obj.center.x if obj.center else None
+    
+    def create(self, validated_data):
+        latitude = validated_data.pop('latitude')
+        longitude = validated_data.pop('longitude')
+        validated_data['center'] = Point(longitude, latitude, srid=4326)
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        if 'latitude' in validated_data and 'longitude' in validated_data:
+            latitude = validated_data.pop('latitude')
+            longitude = validated_data.pop('longitude')
+            validated_data['center'] = Point(longitude, latitude, srid=4326)
+        return super().update(instance, validated_data)
+    
+class UserPrivacySettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPrivacySettings
+        fields = [
+            'default_hide_start_end',
+            'default_privacy_radius',
+            'default_visibility'
+        ]

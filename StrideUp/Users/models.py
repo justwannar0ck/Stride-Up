@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.contrib.gis.db import models
 from django.conf import settings
+from django.contrib.gis.db import models as gis_models
 
 
 class User(AbstractUser):
@@ -188,3 +189,85 @@ class FollowRequest(models.Model):
         self.status = self.Status.REJECTED
         self.save()
         return True
+    
+class PrivacyZone(models.Model):
+    """
+    User-defined privacy zones (e.g., home, work) where routes should be hidden.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='privacy_zones'
+    )
+    name = models.CharField(
+        max_length=100,
+        help_text="Name for this zone (e.g., Home, Work)"
+    )
+    center = gis_models.PointField(
+        geography=True,
+        srid=4326,
+        help_text="Center point of the privacy zone"
+    )
+    radius = models.PositiveIntegerField(
+        default=200,
+        help_text="Radius in meters to hide"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Whether this zone is currently active"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Privacy Zone'
+        verbose_name_plural = 'Privacy Zones'
+    
+    def __str__(self):
+        return f"{self.user.username}'s {self.name} ({self.radius}m)"
+    
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        
+        # Limit radius between 50m and 2000m
+        if self.radius < 50:
+            raise ValidationError({'radius': 'Minimum radius is 50 meters'})
+        if self.radius > 2000:
+            raise ValidationError({'radius': 'Maximum radius is 2000 meters'})
+        
+        # Limit number of privacy zones per user
+        if not self.pk:  # Only check on creation
+            existing_count = PrivacyZone.objects.filter(user=self.user).count()
+            if existing_count >= 10:
+                raise ValidationError('Maximum 10 privacy zones allowed')
+            
+class UserPrivacySettings(models.Model):
+    """
+    User's default privacy settings for activities.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='privacy_settings'
+    )
+    default_hide_start_end = models.BooleanField(
+        default=False,
+        help_text="Default setting for hiding start/end points"
+    )
+    default_privacy_radius = models.PositiveIntegerField(
+        default=200,
+        help_text="Default privacy zone radius in meters"
+    )
+    default_visibility = models.CharField(
+        max_length=20,
+        choices=[
+            ('public', 'Public'),
+            ('followers', 'Followers Only'),
+            ('private', 'Private'),
+        ],
+        default='public'
+    )
+    
+    def __str__(self):
+        return f"{self.user.username}'s privacy settings"

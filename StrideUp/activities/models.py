@@ -2,6 +2,9 @@ from django.contrib.gis.db import models
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+from django.contrib.gis.geos import Point
+import random
+import math
 
 
 class Activity(models.Model):
@@ -223,7 +226,7 @@ class Activity(models.Model):
         
         # Apply privacy masking if enabled
         if self.hide_start_end:
-            self._apply_privacy_masking()
+            self.apply_privacy_masking()
         
         # Calculate distance (PostGIS geography gives us meters)
         self.distance = self.route.length
@@ -248,26 +251,55 @@ class Activity(models.Model):
         
         self.save()
     
-    def _apply_privacy_masking(self):
-        """Offset start/end points by privacy zone radius"""
-        import random
-        import math
-        from django.contrib.gis.geos import Point
+    def apply_privacy_masking(self):
         
-        def offset_point(point, radius_meters):
-            if not point:
-                return None
-            
-            angle = random.uniform(0, 2 * math.pi)
-            distance = random.uniform(radius_meters * 0.5, radius_meters)
-            
-            lat_offset = (distance * math.cos(angle)) / 111000
-            lon_offset = (distance * math.sin(angle)) / (111000 * math.cos(math.radians(point.y)))
-            
-            return Point(point.x + lon_offset, point.y + lat_offset, srid=4326)
+        if not self.hide_start_end:
+            self.masked_start_point = None
+            self.masked_end_point = None
+            return
         
-        self.masked_start_point = offset_point(self.start_point, self.privacy_zone_radius)
-        self.masked_end_point = offset_point(self.end_point, self.privacy_zone_radius)
+        if self.start_point:
+            self.masked_start_point = self._offset_point(
+                self.start_point,
+                self.privacy_zone_radius
+            )
+        
+        if self.end_point:
+            self.masked_end_point = self._offset_point(
+                self.end_point,
+                self.privacy_zone_radius
+            )
+    
+    def _offset_point(self, point, radius_meters):
+        """
+        Offset a point by a random distance and direction within the radius.
+        """
+        
+        # Random distance between 50-100% of radius for better privacy
+        distance = random.uniform(radius_meters * 0.5, radius_meters)
+        
+        # Random bearing (0-360 degrees)
+        bearing = random.uniform(0, 360)
+        bearing_rad = math.radians(bearing)
+        
+        # Earth's radius in meters
+        R = 6371000
+        
+        # Original coordinates (point.x = longitude, point.y = latitude)
+        lat1 = math.radians(point.y)
+        lon1 = math.radians(point.x)
+        
+        # Calculate new position using Haversine formula
+        lat2 = math.asin(
+            math.sin(lat1) * math.cos(distance / R) +
+            math.cos(lat1) * math.sin(distance / R) * math.cos(bearing_rad)
+        )
+        lon2 = lon1 + math.atan2(
+            math.sin(bearing_rad) * math.sin(distance / R) * math.cos(lat1),
+            math.cos(distance / R) - math.sin(lat1) * math.sin(lat2)
+        )
+        
+        return Point(math.degrees(lon2), math.degrees(lat2), srid=4326)
     
     def _calculate_pause_duration(self):
         """Calculate total pause duration from activity pauses"""
@@ -327,21 +359,87 @@ class Activity(models.Model):
         self.calories_burned = met * weight_kg * hours
     
     def get_route_for_display(self):
-        """Get route data formatted for frontend display"""
+        """Get route data formatted for frontend display with privacy filtering"""
         if not self.route:
             return None
         
-        coords = self.route.coords
+        coords = list(self.route.coords)
+        original_count = len(coords)
         
-        # If privacy is enabled, trim start/end of route
-        if self.hide_start_end and len(coords) > 10:
-            trim_count = max(2, len(coords) // 20)
-            coords = coords[trim_count:-trim_count]
+        if not coords or len(coords) < 2:
+            return None
+        
+        # Apply start/end trimming if privacy is enabled
+        # Only trim if we have enough points to still have a valid route after trimming
+        if self.hide_start_end:
+            if len(coords) > 10:
+                # Calculate how many points to trim (at least 2, up to 5% from each end)
+                trim_count = max(2, len(coords) // 20)
+                coords = coords[trim_count:-trim_count]
+            elif len(coords) > 4:
+                # For shorter routes, just trim 1 point from each end
+                coords = coords[1:-1]
+            # If 4 or fewer points with privacy enabled, we can't safely show the route
+            # But we should still show SOMETHING, so skip trimming for very short routes
+            # OR return None if strict privacy is required
+            # For now, let's just skip trimming for very short routes
+        
+        # Apply user's privacy zone filtering
+        coords = self._filter_privacy_zones(coords)
+        
+        # Make sure we still have a valid route
+        if not coords or len(coords) < 2:
+            # If privacy filtering removed too many points, return None
+            # This means the route is entirely within privacy zones
+            print(f"[PRIVACY] Route hidden: started with {original_count} points, ended with {len(coords) if coords else 0}")
+            return None
         
         return {
             'type': 'LineString',
             'coordinates': [[c[0], c[1]] for c in coords]
         }
+        
+    def _filter_privacy_zones(self, coords):
+        """
+        Remove route points that fall within user's privacy zones.
+        Returns filtered coordinates list.
+        """
+        # Import here to avoid circular imports
+        from Users.models import PrivacyZone
+        from django.contrib.gis.geos import Point
+        
+        # Get user's active privacy zones
+        try:
+            privacy_zones = PrivacyZone.objects.filter(
+                user=self.user,
+                is_active=True
+            )
+        except:
+            # If PrivacyZone model doesn't exist yet, return coords unchanged
+            return coords
+        
+        if not privacy_zones.exists():
+            return coords
+        
+        filtered_coords = []
+        
+        for coord in coords:
+            point = Point(coord[0], coord[1], srid=4326)
+            in_zone = False
+            
+            for zone in privacy_zones:
+                # Calculate distance in meters (approximate)
+                # 1 degree latitude ≈ 111,319.9 meters
+                distance = zone.center.distance(point) * 111319.9
+                
+                if distance <= zone.radius:
+                    in_zone = True
+                    break
+            
+            if not in_zone:
+                filtered_coords.append(coord)
+        
+        return filtered_coords
     
     @property
     def distance_km(self):
@@ -482,3 +580,4 @@ class ActivityLike(models.Model):
     
     def __str__(self):
         return f"{self.user.username} liked {self.activity.title}"
+    

@@ -34,6 +34,13 @@ function RootLayoutNav() {
           presentation: 'modal',
         }} 
       />
+      <Stack.Screen 
+        name="privacy-settings" 
+        options={{ 
+        headerShown: false,
+        presentation: 'modal',
+        }} 
+      />
     </Stack>
   );
 }

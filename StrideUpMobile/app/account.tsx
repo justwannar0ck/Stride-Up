@@ -167,8 +167,11 @@ export default function AccountScreen() {
             <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.menuItem}>
-            <Ionicons name="lock-closed-outline" size={22} color="#d9e3d0" />
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/privacy-settings')}
+          >
+            <Ionicons name="shield-checkmark-outline" size={24} color="#d9e3d0" />
             <Text style={styles.menuText}>Privacy Settings</Text>
             <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
           </TouchableOpacity>

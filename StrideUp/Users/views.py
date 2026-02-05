@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from .models import PrivacyZone, UserPrivacySettings
+from .serializers import PrivacyZoneSerializer, UserPrivacySettingsSerializer
 
 from .models import User, Follow, FollowRequest
 from .serializers import (
@@ -285,3 +287,53 @@ class UserSearchView(generics.ListAPIView):
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query)
         ).exclude(id=self.request.user.id)[:20]
+        
+class PrivacyZoneViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing user's privacy zones.
+    """
+    serializer_class = PrivacyZoneSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return PrivacyZone.objects.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        # Check zone limit
+        existing_count = self.get_queryset().count()
+        if existing_count >= 10:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'detail': 'Maximum 10 privacy zones allowed'})
+        serializer.save(user=self.request.user)
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(
+            {'message': f'Privacy zone "{instance.name}" deleted'},
+            status=status.HTTP_200_OK
+        )
+        
+class UserPrivacySettingsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        settings, created = UserPrivacySettings.objects.get_or_create(
+            user=request.user
+        )
+        serializer = UserPrivacySettingsSerializer(settings)
+        return Response(serializer.data)
+    
+    def patch(self, request):
+        settings, created = UserPrivacySettings.objects.get_or_create(
+            user=request.user
+        )
+        serializer = UserPrivacySettingsSerializer(
+            settings, 
+            data=request.data, 
+            partial=True
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -126,32 +126,37 @@ class ActivityViewSet(viewsets.ModelViewSet):
     def complete(self, request, pk=None):
         activity = self.get_object()
         
-        if activity.status not in [Activity.Status.IN_PROGRESS, Activity.Status.PAUSED]:
+        if activity.status == Activity.Status.COMPLETED:
             return Response(
-                {'error': 'Can only complete an active or paused activity'},
+                {'error': 'Activity already completed'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Update with any provided data from request
         serializer = ActivityCompleteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if serializer.is_valid():
+            if serializer.validated_data.get('title'):
+                activity.title = serializer.validated_data['title']
+            if serializer.validated_data.get('description'):
+                activity.description = serializer.validated_data['description']
+            if serializer.validated_data.get('visibility'):
+                activity.visibility = serializer.validated_data['visibility']
+            if 'hide_start_end' in serializer.validated_data:
+                activity.hide_start_end = serializer.validated_data['hide_start_end']
         
-        for field, value in serializer.validated_data.items():
-            setattr(activity, field, value)
-        
-        # Close any open pauses
-        open_pauses = activity.pauses.filter(resumed_at__isnull=True)
-        for pause in open_pauses:
-            pause.resumed_at = timezone.now()
-            pause.save()
-        
-        activity.finished_at = timezone.now()
-        activity.status = Activity.Status.COMPLETED
+        # Save the updates first
         activity.save()
         
-        # Calculate all statistics
+        # Calculate statistics (this builds the route AND calculates stats)
         activity.calculate_statistics()
         
-        detail_serializer = ActivityDetailSerializer(activity)
+        # Mark as completed
+        activity.status = Activity.Status.COMPLETED
+        activity.finished_at = timezone.now()
+        activity.save()
+        
+        # Return response with activity details
+        detail_serializer = ActivityDetailSerializer(activity, context={'request': request})
         return Response(detail_serializer.data)
     
     @action(detail=True, methods=['post'])
