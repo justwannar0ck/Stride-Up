@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Community, CommunityMembership, CommunityInvite,
-    CommunityChallenge, ChallengeParticipation
+    Challenge, ChallengeParticipant
 )
 from Users.serializers import UserMinimalSerializer
 
@@ -24,7 +24,6 @@ class CommunityListSerializer(serializers.ModelSerializer):
     def get_is_member(self, obj):
         if hasattr(obj, 'active_members_count'):
             return obj.active_members_count
-        return obj.members_count
     
     def get_is_member(self, obj):
         request = self.context.get('request')
@@ -105,7 +104,7 @@ class CommunityDetailSerializer(serializers.ModelSerializer):
     
     def get_active_challenges_count(self, obj):
         return obj.challenges.filter(
-            status=CommunityChallenge.Status.ACTIVE
+            status=Challenge.Status.ACTIVE
         ).count()
 
 
@@ -128,3 +127,131 @@ class CommunityInviteSerializer(serializers.ModelSerializer):
             'id', 'community', 'community_name', 'invited_user',
             'invited_by', 'status', 'created_at', 'expires_at',
         ]
+        
+# ─── Challenge Serializers ────────────────────────────────────────────────────
+
+from .models import Challenge, ChallengeParticipant, ChallengeContribution
+
+
+class ChallengeCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Challenge
+        fields = [
+            'id', 'title', 'description', 'challenge_type',
+            'contribution_scope', 'activity_types', 'target_value',
+            'target_unit', 'start_date', 'end_date',
+        ]
+        read_only_fields = ['id']
+
+    def validate(self, data):
+        if data['start_date'] >= data['end_date']:
+            raise serializers.ValidationError('End date must be after start date.')
+        if data['target_value'] <= 0:
+            raise serializers.ValidationError('Target value must be positive.')
+        if not data.get('activity_types'):
+            raise serializers.ValidationError('At least one activity type is required.')
+        # Validate activity types are valid
+        valid_types = ['run', 'walk', 'cycle', 'hike']
+        for t in data['activity_types']:
+            if t not in valid_types:
+                raise serializers.ValidationError(f'Invalid activity type: {t}')
+        return data
+
+
+class ChallengeContributionSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='participant.user.username', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    activity_title = serializers.CharField(source='activity.title', read_only=True)
+    activity_type = serializers.CharField(source='activity.activity_type', read_only=True)
+
+    class Meta:
+        model = ChallengeContribution
+        fields = [
+            'id', 'username', 'full_name', 'activity_title',
+            'activity_type', 'value', 'contributed_at',
+        ]
+
+    def get_full_name(self, obj):
+        return obj.participant.user.get_full_name()
+
+
+class ChallengeParticipantSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    full_name = serializers.SerializerMethodField()
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+
+    class Meta:
+        model = ChallengeParticipant
+        fields = [
+            'id', 'user_id', 'username', 'full_name',
+            'joined_at', 'total_contributed', 'is_completed',
+        ]
+
+    def get_full_name(self, obj):
+        return obj.user.get_full_name()
+
+
+class ChallengeListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing challenges."""
+    participants_count = serializers.IntegerField(read_only=True)
+    total_progress = serializers.FloatField(read_only=True)
+    progress_percentage = serializers.FloatField(read_only=True)
+    current_status = serializers.CharField(read_only=True)
+    is_joined = serializers.SerializerMethodField()
+    created_by_username = serializers.CharField(
+        source='created_by.username', read_only=True
+    )
+
+    class Meta:
+        model = Challenge
+        fields = [
+            'id', 'title', 'description', 'challenge_type',
+            'contribution_scope', 'activity_types', 'target_value',
+            'target_unit', 'start_date', 'end_date', 'status',
+            'current_status', 'participants_count', 'total_progress',
+            'progress_percentage', 'is_joined', 'created_by_username',
+            'created_at',
+        ]
+
+    def get_is_joined(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.participants.filter(user=request.user).exists()
+        return False
+
+
+class ChallengeDetailSerializer(ChallengeListSerializer):
+    """Full detail with leaderboard."""
+    leaderboard = serializers.SerializerMethodField()
+    my_progress = serializers.SerializerMethodField()
+    recent_contributions = serializers.SerializerMethodField()
+
+    class Meta(ChallengeListSerializer.Meta):
+        fields = ChallengeListSerializer.Meta.fields + [
+            'leaderboard', 'my_progress', 'recent_contributions',
+        ]
+
+    def get_leaderboard(self, obj):
+        top_participants = obj.participants.order_by('-total_contributed')[:20]
+        return ChallengeParticipantSerializer(top_participants, many=True).data
+
+    def get_my_progress(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        participant = obj.participants.filter(user=request.user).first()
+        if not participant:
+            return None
+        return {
+            'total_contributed': participant.total_contributed,
+            'is_completed': participant.is_completed,
+            'joined_at': participant.joined_at,
+            'percentage': min(
+                round(participant.total_contributed / obj.target_value * 100, 1),
+                100,
+            ) if obj.target_value > 0 else 0,
+        }
+
+    def get_recent_contributions(self, obj):
+        recent = obj.contributions.order_by('-contributed_at')[:10]
+        return ChallengeContributionSerializer(recent, many=True).data

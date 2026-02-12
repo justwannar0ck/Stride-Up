@@ -308,3 +308,214 @@ class MyCommunityInvitesView(generics.ListAPIView):
             invited_user=self.request.user,
             status=CommunityInvite.Status.PENDING,
         ).select_related('community', 'invited_by', 'invited_user')
+        
+# ─── Challenge Views ──────────────────────────────────────────────────────────
+
+from .models import Challenge, ChallengeParticipant, ChallengeContribution
+from .serializers import (
+    ChallengeCreateSerializer,
+    ChallengeListSerializer,
+    ChallengeDetailSerializer,
+)
+
+
+class ChallengeViewSet(viewsets.ModelViewSet):
+    """
+    CRUD for challenges within a community.
+    Nested under /api/v1/communities/<community_id>/challenges/
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_community(self):
+        community_id = self.kwargs.get('community_id')
+        return Community.objects.get(pk=community_id)
+
+    def get_queryset(self):
+        community = self.get_community()
+        # Sync status on access
+        for c in community.challenges.exclude(status=Challenge.Status.CANCELLED):
+            c.sync_status()
+        return community.challenges.all()
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ChallengeCreateSerializer
+        if self.action == 'retrieve':
+            return ChallengeDetailSerializer
+        return ChallengeListSerializer
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        ctx['request'] = self.request
+        return ctx
+
+    def create(self, request, community_id=None):
+        """Only owner/admin/moderator can create challenges."""
+        community = self.get_community()
+
+        membership = CommunityMembership.objects.filter(
+            community=community,
+            user=request.user,
+            status=CommunityMembership.Status.ACTIVE,
+        ).first()
+
+        if not membership or membership.role not in [
+            CommunityMembership.Role.OWNER,
+            CommunityMembership.Role.ADMIN,
+            CommunityMembership.Role.MODERATOR,
+        ]:
+            return Response(
+                {'detail': 'Only leaders can create challenges.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Determine initial status based on start_date
+        from django.utils import timezone
+        start = serializer.validated_data['start_date']
+        end = serializer.validated_data['end_date']
+        now = timezone.now()
+
+        if now >= end:
+            return Response(
+                {'detail': 'End date must be in the future.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        initial_status = Challenge.Status.ACTIVE if now >= start else Challenge.Status.UPCOMING
+
+        challenge = serializer.save(
+            community=community,
+            created_by=request.user,
+            status=initial_status,
+        )
+
+        return Response(
+            ChallengeDetailSerializer(challenge, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def partial_update(self, request, community_id=None, pk=None):
+        """Only description can be edited."""
+        challenge = self.get_object()
+
+        membership = CommunityMembership.objects.filter(
+            community=challenge.community,
+            user=request.user,
+            status=CommunityMembership.Status.ACTIVE,
+        ).first()
+
+        if not membership or membership.role not in [
+            CommunityMembership.Role.OWNER,
+            CommunityMembership.Role.ADMIN,
+        ]:
+            return Response(
+                {'detail': 'Only admins can edit challenges.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Only allow description updates
+        allowed_fields = {'description'}
+        data = {k: v for k, v in request.data.items() if k in allowed_fields}
+
+        if not data:
+            return Response(
+                {'detail': 'Only description can be edited.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        for key, value in data.items():
+            setattr(challenge, key, value)
+        challenge.save()
+
+        return Response(
+            ChallengeDetailSerializer(challenge, context={'request': request}).data
+        )
+
+    def destroy(self, request, community_id=None, pk=None):
+        """Cancel a challenge (owner/admin only)."""
+        challenge = self.get_object()
+
+        membership = CommunityMembership.objects.filter(
+            community=challenge.community,
+            user=request.user,
+            status=CommunityMembership.Status.ACTIVE,
+        ).first()
+
+        if not membership or membership.role not in [
+            CommunityMembership.Role.OWNER,
+            CommunityMembership.Role.ADMIN,
+        ]:
+            return Response(
+                {'detail': 'Only admins can cancel challenges.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        challenge.status = Challenge.Status.CANCELLED
+        challenge.save(update_fields=['status'])
+
+        return Response({'detail': f'Challenge "{challenge.title}" cancelled.'})
+
+    @action(detail=True, methods=['post'])
+    def join(self, request, community_id=None, pk=None):
+        """Join a challenge. User must be an active community member."""
+        challenge = self.get_object()
+
+        # Must be active community member
+        membership = CommunityMembership.objects.filter(
+            community=challenge.community,
+            user=request.user,
+            status=CommunityMembership.Status.ACTIVE,
+        ).first()
+
+        if not membership:
+            return Response(
+                {'detail': 'You must be a community member to join challenges.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Challenge must be active or upcoming
+        if challenge.current_status not in [
+            Challenge.Status.ACTIVE,
+            Challenge.Status.UPCOMING,
+        ]:
+            return Response(
+                {'detail': 'This challenge is no longer accepting participants.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        participant, created = ChallengeParticipant.objects.get_or_create(
+            challenge=challenge,
+            user=request.user,
+        )
+
+        if not created:
+            return Response(
+                {'detail': 'You have already joined this challenge.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {'detail': f'You joined "{challenge.title}"!'},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['post'])
+    def leave(self, request, community_id=None, pk=None):
+        """Leave a challenge."""
+        challenge = self.get_object()
+
+        deleted, _ = ChallengeParticipant.objects.filter(
+            challenge=challenge,
+            user=request.user,
+        ).delete()
+
+        if deleted:
+            return Response({'detail': 'You left the challenge.'})
+
+        return Response(
+            {'detail': 'You are not in this challenge.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )

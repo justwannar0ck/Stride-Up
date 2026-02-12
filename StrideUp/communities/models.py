@@ -129,6 +129,204 @@ class CommunityMembership(models.Model):
     def can_moderate(self):
         return self.role in [self.Role.OWNER, self.Role.ADMIN, self.Role.MODERATOR]
 
+# ─── Challenge Models ─────────────────────────────────────────────────────────
+
+class Challenge(models.Model):
+    """
+    A challenge created within a community that members can join and contribute to.
+    Contributions happen automatically when a matching activity is completed.
+    """
+
+    class ChallengeType(models.TextChoices):
+        DISTANCE = 'distance', 'Distance'
+        DURATION = 'duration', 'Duration'
+        COUNT = 'count', 'Activity Count'
+        ELEVATION = 'elevation', 'Elevation'
+
+    class ContributionScope(models.TextChoices):
+        COLLECTIVE = 'collective', 'Collective'
+        INDIVIDUAL = 'individual', 'Individual'
+
+    class Status(models.TextChoices):
+        UPCOMING = 'upcoming', 'Upcoming'
+        ACTIVE = 'active', 'Active'
+        COMPLETED = 'completed', 'Completed'
+        CANCELLED = 'cancelled', 'Cancelled'
+
+    community = models.ForeignKey(
+        'Community',
+        on_delete=models.CASCADE,
+        related_name='challenges',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='created_challenges',
+    )
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    challenge_type = models.CharField(
+        max_length=20,
+        choices=ChallengeType.choices,
+    )
+    contribution_scope = models.CharField(
+        max_length=20,
+        choices=ContributionScope.choices,
+    )
+
+    # Which activity types qualify (stored as JSON list, e.g. ["run","walk"])
+    activity_types = models.JSONField(
+        default=list,
+        help_text='List of activity types that qualify, e.g. ["run","walk"]',
+    )
+
+    target_value = models.FloatField(
+        help_text='Goal number (km, hours, count, or meters depending on type)',
+    )
+    target_unit = models.CharField(
+        max_length=20,
+        help_text='Display unit: km, hours, activities, meters',
+    )
+
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.UPCOMING,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['community', 'status']),
+            models.Index(fields=['start_date', 'end_date']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.community.name})"
+
+    @property
+    def current_status(self):
+        """Compute the real-time status based on dates."""
+        from django.utils import timezone
+        now = timezone.now()
+        if self.status == self.Status.CANCELLED:
+            return self.Status.CANCELLED
+        if now < self.start_date:
+            return self.Status.UPCOMING
+        if now > self.end_date:
+            return self.Status.COMPLETED
+        return self.Status.ACTIVE
+
+    def sync_status(self):
+        """Update status field to match current_status. Call via cron or on access."""
+        computed = self.current_status
+        if self.status != computed and self.status != self.Status.CANCELLED:
+            self.status = computed
+            self.save(update_fields=['status'])
+
+    @property
+    def total_progress(self):
+        """Sum of all contributions to this challenge."""
+        return self.contributions.aggregate(
+            total=models.Sum('value')
+        )['total'] or 0
+
+    @property
+    def progress_percentage(self):
+        if self.target_value <= 0:
+            return 0
+        if self.contribution_scope == self.ContributionScope.COLLECTIVE:
+            return min(round(self.total_progress / self.target_value * 100, 1), 100)
+        return 0  # For individual, percentage is per-participant
+
+    @property
+    def participants_count(self):
+        return self.participants.count()
+
+
+class ChallengeParticipant(models.Model):
+    """
+    Tracks which users have joined a challenge.
+    """
+    challenge = models.ForeignKey(
+        Challenge,
+        on_delete=models.CASCADE,
+        related_name='participants',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='challenge_participations',
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+    total_contributed = models.FloatField(
+        default=0,
+        help_text='Running total of this user\'s contributions',
+    )
+    is_completed = models.BooleanField(
+        default=False,
+        help_text='Whether this participant hit the individual target',
+    )
+
+    class Meta:
+        unique_together = ('challenge', 'user')
+        ordering = ['-total_contributed']
+
+    def __str__(self):
+        return f"{self.user.username} in {self.challenge.title}"
+
+    def update_total(self):
+        """Recalculate total_contributed from contributions."""
+        total = self.contributions.aggregate(
+            total=models.Sum('value')
+        )['total'] or 0
+        self.total_contributed = total
+        # Check individual completion
+        if self.challenge.contribution_scope == Challenge.ContributionScope.INDIVIDUAL:
+            self.is_completed = total >= self.challenge.target_value
+        self.save(update_fields=['total_contributed', 'is_completed'])
+
+
+class ChallengeContribution(models.Model):
+    """
+    A single contribution to a challenge, linked to a specific activity.
+    Created automatically when a qualifying activity is completed.
+    """
+    challenge = models.ForeignKey(
+        Challenge,
+        on_delete=models.CASCADE,
+        related_name='contributions',
+    )
+    participant = models.ForeignKey(
+        ChallengeParticipant,
+        on_delete=models.CASCADE,
+        related_name='contributions',
+    )
+    activity = models.ForeignKey(
+        'activities.Activity',
+        on_delete=models.CASCADE,
+        related_name='challenge_contributions',
+    )
+    value = models.FloatField(
+        help_text='The contributed amount (km, hours, 1, or meters)',
+    )
+    contributed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Prevent the same activity counting twice for the same challenge
+        unique_together = ('challenge', 'activity')
+        ordering = ['-contributed_at']
+
+    def __str__(self):
+        return f"{self.participant.user.username}: {self.value} for {self.challenge.title}"
 
 class CommunityInvite(models.Model):
     """
@@ -175,110 +373,3 @@ class CommunityInvite(models.Model):
     
     def __str__(self):
         return f"Invite for {self.invited_user.username} to {self.community.name}"
-
-
-# ──────────────────────────────────────────────────────────────────────
-# PLACEHOLDER for future Challenge feature — kept here so the schema
-# is designed with it in mind. DO NOT implement logic yet.
-# ──────────────────────────────────────────────────────────────────────
-
-class CommunityChallenge(models.Model):
-    """
-    A challenge created within a community by an admin/owner.
-    Members contribute via their activities.
-    (Placeholder — full implementation in a future sprint)
-    """
-    
-    class ChallengeType(models.TextChoices):
-        TOTAL_DISTANCE = 'total_distance', 'Total Distance'
-        TOTAL_DURATION = 'total_duration', 'Total Duration'
-        TOTAL_ELEVATION = 'total_elevation', 'Total Elevation Gain'
-        ACTIVITY_COUNT = 'activity_count', 'Activity Count'
-        CALORIES = 'calories', 'Calories Burned'
-    
-    class Status(models.TextChoices):
-        UPCOMING = 'upcoming', 'Upcoming'
-        ACTIVE = 'active', 'Active'
-        COMPLETED = 'completed', 'Completed'
-        CANCELLED = 'cancelled', 'Cancelled'
-    
-    community = models.ForeignKey(
-        Community,
-        on_delete=models.CASCADE,
-        related_name='challenges'
-    )
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='created_challenges'
-    )
-    
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    challenge_type = models.CharField(
-        max_length=30,
-        choices=ChallengeType.choices,
-        default=ChallengeType.TOTAL_DISTANCE
-    )
-    
-    # Target value (e.g., 500 km, 100 activities, etc.)
-    target_value = models.FloatField(
-        help_text="The goal value for this challenge"
-    )
-    
-    # Which activity types count toward this challenge
-    allowed_activity_types = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="Activity types that count: ['run', 'walk', 'cycle', 'hike']. Empty = all."
-    )
-    
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.UPCOMING
-    )
-    
-    starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['-starts_at']
-    
-    def __str__(self):
-        return f"{self.title} ({self.community.name})"
-
-
-class ChallengeParticipation(models.Model):
-    """
-    Tracks individual member contributions to a challenge.
-    (Placeholder — full implementation in a future sprint)
-    """
-    
-    challenge = models.ForeignKey(
-        CommunityChallenge,
-        on_delete=models.CASCADE,
-        related_name='participations'
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='challenge_participations'
-    )
-    
-    # Aggregated contribution
-    contributed_value = models.FloatField(default=0)
-    activities_count = models.PositiveIntegerField(default=0)
-    
-    joined_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        unique_together = ('challenge', 'user')
-        ordering = ['-contributed_value']
-    
-    def __str__(self):
-        return f"{self.user.username}'s contribution to {self.challenge.title}"
