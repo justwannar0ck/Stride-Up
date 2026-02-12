@@ -22,6 +22,8 @@ import {
   PrivacySettings 
 } from './services/privacyService';
 import * as Location from 'expo-location';
+import { followService, UserProfile } from './services/followService';
+import api from './api';
 
 export default function PrivacySettingsScreen() {
   const router = useRouter();
@@ -31,6 +33,8 @@ export default function PrivacySettingsScreen() {
   const [settings, setSettings] = useState<PrivacySettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [isPrivateAccount, setIsPrivateAccount] = useState(false);
   
   // Add zone modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -67,21 +71,23 @@ export default function PrivacySettingsScreen() {
   };
 
   const loadData = async () => {
-    try {
-      setLoading(true);
-      const [zonesData, settingsData] = await Promise.all([
-        privacyService.getPrivacyZones(),
-        privacyService.getPrivacySettings(),
-      ]);
-      setZones(zonesData);
-      setSettings(settingsData);
-    } catch (error) {
-      console.error('Failed to load privacy data:', error);
-      Alert.alert('Error', 'Failed to load privacy settings');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const [zonesData, settingsData, profileData] = await Promise.all([
+      privacyService.getPrivacyZones(),
+      privacyService.getPrivacySettings(),
+      followService.getMyProfile(),
+    ]);
+    setZones(zonesData);
+    setSettings(settingsData);
+    setIsPrivateAccount(profileData.is_private);
+  } catch (error) {
+    console.error('Failed to load privacy data:', error);
+    Alert.alert('Error', 'Failed to load privacy settings');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSettingChange = async (
     key: keyof PrivacySettings, 
@@ -96,11 +102,23 @@ export default function PrivacySettingsScreen() {
       await privacyService.updatePrivacySettings({ [key]: value });
     } catch (error) {
       console.error('Failed to update setting:', error);
-      // Revert on error
       setSettings(settings);
       Alert.alert('Error', 'Failed to update setting');
     }
   };
+
+  const handleTogglePrivateAccount = async (value: boolean) => {
+  const previousValue = isPrivateAccount;
+  setIsPrivateAccount(value);
+  
+  try {
+    await api.patch('/api/users/me/', { is_private: value });
+  } catch (error) {
+    console.error('Failed to update account privacy:', error);
+    setIsPrivateAccount(previousValue);
+    Alert.alert('Error', 'Failed to update account privacy');
+  }
+};
 
   const handleMapPress = (event: MapPressEvent) => {
     setSelectedLocation(event.nativeEvent.coordinate);
@@ -234,6 +252,25 @@ export default function PrivacySettingsScreen() {
           <View style={styles.placeholder} />
         </View>
       </View>
+
+      <View style={styles.section}>
+  <Text style={styles.sectionTitle}>Account Privacy</Text>
+  
+  <View style={styles.settingRow}>
+    <View style={styles.settingInfo}>
+      <Text style={styles.settingLabel}>Private Account</Text>
+      <Text style={styles.settingDescription}>
+        When enabled, users must request to follow you
+      </Text>
+    </View>
+    <Switch
+      value={isPrivateAccount}
+      onValueChange={handleTogglePrivateAccount}
+      trackColor={{ false: '#3a3d2a', true: '#8a8d6a' }}
+      thumbColor={isPrivateAccount ? '#d9e3d0' : '#666'}
+    />
+  </View>
+</View>
 
       <FlatList
         style={styles.content}

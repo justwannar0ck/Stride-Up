@@ -1,227 +1,397 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { communityService, Community } from '../services/communityService';
 
 export default function CommunityScreen() {
+  const router = useRouter();
+  const [myCommunities, setMyCommunities] = useState<Community[]>([]);
+  const [discoverCommunities, setDiscoverCommunities] = useState<Community[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'my' | 'discover'>('my');
+
+  const loadData = useCallback(async () => {
+    try {
+      const [mine, all] = await Promise.all([
+        communityService.getMyCommunities(),
+        communityService.listCommunities(),
+      ]);
+      setMyCommunities(mine);
+      // Show communities user hasn't joined in discover
+      const myIds = new Set(mine.map((c) => c.id));
+      setDiscoverCommunities(all.filter((c) => !myIds.has(c.id)));
+    } catch (error) {
+      console.error('Failed to load communities:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      loadData();
+      return;
+    }
+    try {
+      const results = await communityService.listCommunities({ q: searchQuery });
+      setDiscoverCommunities(results);
+      setActiveTab('discover');
+    } catch (error) {
+      console.error('Search failed:', error);
+    }
+  };
+
+  const handleJoin = async (community: Community) => {
+    try {
+      const result = await communityService.joinCommunity(community.id);
+      Alert.alert('Success', result.detail);
+      loadData(); // Refresh lists
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to join');
+    }
+  };
+
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    loadData();
+  };
+
+  const renderCommunityCard = (community: Community, showJoin: boolean) => (
+    <TouchableOpacity
+      key={community.id}
+      style={styles.communityCard}
+      onPress={() =>
+        router.push({
+          pathname: '/community-detail',
+          params: { communityId: community.id.toString() },
+        })
+      }
+      activeOpacity={0.7}
+    >
+      {/* Icon */}
+      <View style={styles.communityIcon}>
+        <Ionicons
+          name={
+            community.visibility === 'private'
+              ? 'lock-closed'
+              : 'people'
+          }
+          size={24}
+          color="#d9e3d0"
+        />
+      </View>
+
+      {/* Info */}
+      <View style={styles.communityInfo}>
+        <Text style={styles.communityName} numberOfLines={1}>
+          {community.name}
+        </Text>
+        <Text style={styles.communityMeta} numberOfLines={1}>
+          {community.members_count} member{community.members_count !== 1 ? 's' : ''}
+          {community.activity_types?.length > 0 &&
+            ` · ${community.activity_types.join(', ')}`}
+        </Text>
+        {community.description ? (
+          <Text style={styles.communityDesc} numberOfLines={2}>
+            {community.description}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* Action */}
+      {showJoin && !community.is_member ? (
+        <TouchableOpacity
+          style={styles.joinButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleJoin(community);
+          }}
+        >
+          <Text style={styles.joinButtonText}>
+            {community.visibility === 'private' ? 'Request' : 'Join'}
+          </Text>
+        </TouchableOpacity>
+      ) : community.my_role ? (
+        <View style={styles.roleBadge}>
+          <Text style={styles.roleBadgeText}>
+            {community.my_role.charAt(0).toUpperCase() +
+              community.my_role.slice(1)}
+          </Text>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#d9e3d0" />
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#d9e3d0" />
+      }
+    >
+      {/* Header */}
       <View style={styles.pageHeader}>
         <Ionicons name="people-outline" size={20} color="#d9e3d0" />
-        <Text style={styles.pageTitle}>Social</Text>
+        <Text style={styles.pageTitle}>Communities</Text>
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => router.push('/community-create')}
+        >
+          <Ionicons name="add" size={22} color="#4a4d2e" />
+        </TouchableOpacity>
       </View>
 
-      {/* Sample Post */}
-      <View style={styles.postCard}>
-        <View style={styles.postHeader}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={24} color="#8a8d6a" />
-          </View>
-          <View style={styles.postUserInfo}>
-            <Text style={styles.username}>shidharth_kharga</Text>
-            <Text style={styles.postDate}>December 18 2025, Nagarkot</Text>
-          </View>
-          <TouchableOpacity style={styles.followButton}>
-            <Text style={styles.followButtonText}>Following</Text>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color="#8a8d6a" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search communities..."
+          placeholderTextColor="#8a8d6a"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmitEditing={handleSearch}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => {
+              setSearchQuery('');
+              loadData();
+            }}
+          >
+            <Ionicons name="close-circle" size={18} color="#8a8d6a" />
           </TouchableOpacity>
-        </View>
-        
-        <Text style={styles.postText}>The views were crazy ! !</Text>
-        
-        <View style={styles.postImages}>
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name="image" size={48} color="#8a8d6a" />
-            <Text style={styles.imagePlaceholderText}>Activity Photo</Text>
-          </View>
-          <View style={styles. mapPlaceholder}>
-            <Ionicons name="map" size={32} color="#8a8d6a" />
-            <Text style={styles.mapPlaceholderText}>Route Map</Text>
-          </View>
-        </View>
-        
-        <View style={styles.postActions}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="heart-outline" size={24} color="#d9e3d0" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Ionicons name="chatbubble-outline" size={22} color="#d9e3d0" />
-          </TouchableOpacity>
-        </View>
+        )}
       </View>
 
-      {/* Recommended Users */}
-      <Text style={styles.sectionTitle}>Users recommended for you</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recommendedScroll}>
-        {['shraajan_giri', 'armiks_barki', 'sujan_paudel']. map((user, index) => (
-          <View key={index} style={styles. recommendedUser}>
-            <View style={styles.recommendedAvatar}>
-              <Ionicons name="person" size={32} color="#8a8d6a" />
-            </View>
-            <Text style={styles.recommendedName}>{user}</Text>
-            <TouchableOpacity style={styles.followSmallButton}>
-              <Text style={styles.followSmallText}>Follow</Text>
-            </TouchableOpacity>
+      {/* Tabs */}
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'my' && styles.tabActive]}
+          onPress={() => setActiveTab('my')}
+        >
+          <Text style={[styles.tabText, activeTab === 'my' && styles.tabTextActive]}>
+            My Communities
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'discover' && styles.tabActive]}
+          onPress={() => setActiveTab('discover')}
+        >
+          <Text
+            style={[styles.tabText, activeTab === 'discover' && styles.tabTextActive]}
+          >
+            Discover
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Content */}
+      {activeTab === 'my' ? (
+        myCommunities.length > 0 ? (
+          myCommunities.map((c) => renderCommunityCard(c, false))
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="people" size={48} color="#8a8d6a" />
+            <Text style={styles.emptyText}>No communities yet</Text>
+            <Text style={styles.emptySubtext}>
+              Create one or discover communities to join!
+            </Text>
           </View>
-        ))}
-      </ScrollView>
-      
-      <Text style={styles. comingSoon}>Full social features coming in Sprint 4</Text>
+        )
+      ) : discoverCommunities.length > 0 ? (
+        discoverCommunities.map((c) => renderCommunityCard(c, true))
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="search" size={48} color="#8a8d6a" />
+          <Text style={styles.emptyText}>No communities found</Text>
+          <Text style={styles.emptySubtext}>Try a different search or create your own!</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex:  1,
+    flex: 1,
     backgroundColor: '#5c5f3d',
   },
   content: {
     padding: 16,
     paddingBottom: 100,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#5c5f3d',
+  },
   pageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   pageTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#d9e3d0',
     marginLeft: 10,
+    flex: 1,
   },
-  postCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar:  {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  createButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#d9e3d0',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  postUserInfo: {
-    flex: 1,
-    marginLeft: 12,
+  // Search
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
   },
-  username: {
+  searchInput: {
+    flex: 1,
+    color: '#d9e3d0',
     fontSize: 14,
+    marginLeft: 8,
+  },
+  // Tabs
+  tabRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: '#d9e3d0',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#8a8d6a',
+  },
+  tabTextActive: {
+    color: '#d9e3d0',
+    fontWeight: '600',
+  },
+  // Community Card
+  communityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  communityIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  communityInfo: {
+    flex: 1,
+  },
+  communityName: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#d9e3d0',
   },
-  postDate: {
-    fontSize: 11,
+  communityMeta: {
+    fontSize: 12,
     color: '#8a8d6a',
     marginTop: 2,
   },
-  followButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  followButtonText: {
+  communityDesc: {
     fontSize: 12,
-    color: '#d9e3d0',
-    fontWeight:  '500',
-  },
-  postText: {
-    fontSize:  14,
-    color: '#d9e3d0',
-    marginBottom: 12,
-  },
-  postImages: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    height: 180,
-  },
-  imagePlaceholder: {
-    flex: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems:  'center',
-  },
-  imagePlaceholderText:  {
-    fontSize: 12,
-    color: '#8a8d6a',
-    marginTop: 8,
-  },
-  mapPlaceholder: {
-    flex:  1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapPlaceholderText: {
-    fontSize: 10,
-    color: '#8a8d6a',
+    color: '#b8c4a8',
     marginTop: 4,
   },
-  postActions: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    marginRight: 16,
-    padding: 4,
-  },
-  sectionTitle: {
-    fontSize:  16,
-    fontWeight: '600',
-    color: '#d9e3d0',
-    marginBottom: 12,
-  },
-  recommendedScroll: {
-    marginBottom: 20,
-  },
-  recommendedUser: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    marginRight: 12,
-    width: 110,
-  },
-  recommendedAvatar: {
-    width:  56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  recommendedName: {
-    fontSize: 11,
-    color: '#d9e3d0',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  followSmallButton:  {
-    backgroundColor: '#4a4d2e',
+  joinButton: {
+    backgroundColor: '#d9e3d0',
     paddingHorizontal: 16,
-    paddingVertical:  6,
-    borderRadius:  12,
+    paddingVertical: 8,
+    borderRadius: 14,
   },
-  followSmallText: {
-    fontSize:  11,
-    color: '#d9e3d0',
+  joinButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4a4d2e',
+  },
+  roleBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  roleBadgeText: {
+    fontSize: 11,
+    color: '#b8c4a8',
     fontWeight: '500',
   },
-  comingSoon: {
+  // Empty State
+  emptyState: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#d9e3d0',
+    marginTop: 12,
+  },
+  emptySubtext: {
     fontSize: 12,
     color: '#8a8d6a',
+    marginTop: 4,
     textAlign: 'center',
-    fontStyle: 'italic',
   },
 });

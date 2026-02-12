@@ -80,3 +80,7 @@ export const privacyService = {
     return response.data;
   },
 };
+
+export const updateAccountPrivacy = async (isPrivate: boolean): Promise<void> => {
+  await api.patch('/api/users/me/', { is_private: isPrivate });
+};

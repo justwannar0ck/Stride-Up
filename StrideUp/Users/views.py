@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import PrivacyZone, UserPrivacySettings
-from .serializers import PrivacyZoneSerializer, UserPrivacySettingsSerializer
+from .serializers import PrivacyZoneSerializer, UserPrivacySettingsSerializer, UserProfileUpdateSerializer
 
 from .models import User, Follow, FollowRequest
 from .serializers import (
@@ -73,6 +73,24 @@ class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
             many=True,
             context={'request': request}
         )
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get', 'patch'])
+    def me(self, request):
+        """Get or update the current user's profile."""
+        if request.method == 'PATCH':
+            serializer = UserProfileUpdateSerializer(
+                request.user, 
+                data=request.data, 
+                partial=True
+            )
+            if serializer.is_valid():
+                serializer.save()
+                # Return full profile after update
+                return Response(UserProfileSerializer(request.user, context={'request': request}).data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = self.get_serializer(request.user)
         return Response(serializer.data)
 
 

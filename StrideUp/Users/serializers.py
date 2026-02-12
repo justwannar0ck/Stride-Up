@@ -82,6 +82,27 @@ class UserProfileSerializer(serializers.ModelSerializer):
         
         return 'not_following'
 
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating user profile."""
+    
+    class Meta:
+        model = User
+        fields = [
+            'first_name', 
+            'last_name', 
+            'bio', 
+            'profile_picture', 
+            'is_private',
+            'date_of_birth',
+        ]
+        extra_kwargs = {
+            'first_name': {'required': False},
+            'last_name': {'required': False},
+            'bio': {'required': False},
+            'profile_picture': {'required': False},
+            'is_private': {'required': False},
+            'date_of_birth': {'required': False},
+        }
 
 class FollowSerializer(serializers.ModelSerializer):
     """Serializer for Follow relationships."""

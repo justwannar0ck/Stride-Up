@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "activities",
     "djoser",
     "corsheaders",
+    "communities",
 ]
 
 MIDDLEWARE = [

@@ -41,6 +41,18 @@ function RootLayoutNav() {
         presentation: 'modal',
         }} 
       />
+      <Stack.Screen
+        name="community-detail"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="community-create"
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="community-settings"
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
     </Stack>
   );
 }

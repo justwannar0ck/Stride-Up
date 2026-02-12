@@ -189,7 +189,6 @@ export default function FeedScreen() {
     return date.toLocaleDateString();
   };
 
-  // Render search result item
   const renderSearchResult = ({ item }: { item: UserMinimal }) => (
     <TouchableOpacity
       style={styles.searchResultItem}
@@ -211,7 +210,6 @@ export default function FeedScreen() {
     </TouchableOpacity>
   );
 
-  // Render feed activity item
   const renderFeedItem = ({ item }: { item: FeedActivity }) => {
     const isLiking = likingIds.has(item.id);
     
@@ -282,7 +280,6 @@ export default function FeedScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Like Section */}
         <View style={styles.feedItemActions}>
           <TouchableOpacity
             style={styles.likeButton}

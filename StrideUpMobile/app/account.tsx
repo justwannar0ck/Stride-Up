@@ -176,7 +176,6 @@ export default function AccountScreen() {
             <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
           </TouchableOpacity>
           
-          {/* Follow Requests menu item (always visible, with badge if pending) */}
           <TouchableOpacity 
             style={styles.menuItem}
             onPress={navigateToFollowRequests}
