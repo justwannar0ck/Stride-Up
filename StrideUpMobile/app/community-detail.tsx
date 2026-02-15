@@ -17,6 +17,7 @@ import {
   CommunityDetail,
   CommunityMember,
 } from './services/communityService';
+import ChallengesList from './components/ChallengesList';
 
 export default function CommunityDetailScreen() {
   const router = useRouter();
@@ -281,16 +282,14 @@ export default function CommunityDetailScreen() {
 
         {/* Challenges Section */}
         {activeSection === 'challenges' && (
-          <View style={styles.section}>
-            <View style={styles.challengePlaceholder}>
-              <Ionicons name="trophy" size={48} color="#8a8d6a" />
-              <Text style={styles.emptyText}>Challenges coming soon!</Text>
-              <Text style={styles.emptySubtext}>
-                Community leaders will be able to create challenges for members to compete and
-                contribute together.
-              </Text>
-            </View>
-          </View>
+          <ChallengesList
+            communityId={parseInt(communityId!)}
+            isAdmin={
+              community?.my_role === 'owner' ||
+              community?.my_role === 'admin' ||
+              community?.my_role === 'moderator'
+            }
+          />
         )}
       </ScrollView>
     </View>

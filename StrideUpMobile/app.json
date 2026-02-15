@@ -2,7 +2,7 @@
   "expo": {
     "name": "StrideUp",
     "slug": "strideup",
-    "version": "1.0.0", 
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.jpg",
     "userInterfaceStyle": "dark",
@@ -35,7 +35,7 @@
         {
           "locationAlwaysAndWhenInUsePermission": "StrideUp needs access to your location to track your activities and show your routes on the map.",
           "locationAlwaysPermission": "StrideUp needs access to your location to track your activities even when the app is in the background.",
-          "locationWhenInUsePermission":  "StrideUp needs access to your location to track your activities.",
+          "locationWhenInUsePermission": "StrideUp needs access to your location to track your activities.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
@@ -43,10 +43,11 @@
       ],
       [
         "expo-task-manager"
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
-      "eas":  {
+      "eas": {
         "projectId": "your-project-id"
       }
     }

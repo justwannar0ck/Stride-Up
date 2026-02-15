@@ -53,6 +53,20 @@ function RootLayoutNav() {
         name="community-settings"
         options={{ headerShown: false, presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="challenge-detail"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="challenge-create"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
     </Stack>
   );
 }
