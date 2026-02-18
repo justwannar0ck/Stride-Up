@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import {
   challengeService,
   ChallengeDetail as ChallengeDetailType,
   ChallengeParticipant,
+  RouteWaypoint,
 } from './services/challengeService';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -40,6 +42,18 @@ const ACTIVITY_ICONS: Record<string, string> = {
   walk: 'footsteps-outline',
   cycle: 'bicycle-outline',
   hike: 'trail-sign-outline',
+};
+
+const WAYPOINT_COLORS: Record<string, string> = {
+  start: '#2ecc71',
+  checkpoint: '#f1c40f',
+  end: '#e74c3c',
+};
+
+const WAYPOINT_ICONS: Record<string, string> = {
+  start: 'flag',
+  checkpoint: 'location',
+  end: 'checkmark-circle',
 };
 
 function formatFullDate(dateStr: string) {
@@ -75,6 +89,42 @@ function getDaysRemaining(endDate: string) {
   return `${diff} days left`;
 }
 
+/** Compute a region that fits all waypoints with padding */
+function getRegionForWaypoints(waypoints: RouteWaypoint[]) {
+  if (waypoints.length === 0) {
+    return {
+      latitude: 27.7172,
+      longitude: 85.324,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    };
+  }
+
+  let minLat = waypoints[0].latitude;
+  let maxLat = waypoints[0].latitude;
+  let minLng = waypoints[0].longitude;
+  let maxLng = waypoints[0].longitude;
+
+  for (const wp of waypoints) {
+    minLat = Math.min(minLat, wp.latitude);
+    maxLat = Math.max(maxLat, wp.latitude);
+    minLng = Math.min(minLng, wp.longitude);
+    maxLng = Math.max(maxLng, wp.longitude);
+  }
+
+  const midLat = (minLat + maxLat) / 2;
+  const midLng = (minLng + maxLng) / 2;
+  const deltaLat = (maxLat - minLat) * 1.4 || 0.01; // 40% padding
+  const deltaLng = (maxLng - minLng) * 1.4 || 0.01;
+
+  return {
+    latitude: midLat,
+    longitude: midLng,
+    latitudeDelta: Math.max(deltaLat, 0.005),
+    longitudeDelta: Math.max(deltaLng, 0.005),
+  };
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function ChallengeDetailScreen() {
@@ -88,6 +138,7 @@ export default function ChallengeDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [joining, setJoining] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
   const loadChallenge = useCallback(async () => {
     if (!communityId || !challengeId) return;
@@ -185,6 +236,17 @@ export default function ChallengeDetailScreen() {
     ? challenge.total_progress
     : challenge.my_progress?.total_contributed || 0;
 
+  // Route data
+  const hasRoute =
+    challenge.is_route_challenge &&
+    challenge.route_waypoints &&
+    challenge.route_waypoints.length > 0;
+  const waypoints = hasRoute ? challenge.route_waypoints : [];
+  const polyCoords = waypoints.map((wp) => ({
+    latitude: wp.latitude,
+    longitude: wp.longitude,
+  }));
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -233,6 +295,7 @@ export default function ChallengeDetailScreen() {
               <Text style={styles.heroMeta}>
                 {TYPE_LABELS[challenge.challenge_type]} ·{' '}
                 {isCollective ? 'Collective' : 'Individual'}
+                {hasRoute ? ' · Route Challenge' : ''}
               </Text>
             </View>
           </View>
@@ -277,6 +340,156 @@ export default function ChallengeDetailScreen() {
             ))}
           </View>
         </View>
+
+        {/* ── Route Map section (only for route challenges) ── */}
+        {hasRoute && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="navigate-outline" size={18} color="#2ecc71" />
+              <Text style={styles.sectionTitle}>Challenge Route</Text>
+              <View style={styles.routeBadge}>
+                <Text style={styles.routeBadgeText}>
+                  {waypoints.length} points
+                </Text>
+              </View>
+            </View>
+
+            {/* Map */}
+            <View style={styles.routeMapContainer}>
+              <MapView
+                ref={mapRef}
+                style={styles.routeMap}
+                initialRegion={getRegionForWaypoints(waypoints)}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+              >
+                {/* Route polyline */}
+                {polyCoords.length > 1 && (
+                  <Polyline
+                    coordinates={polyCoords}
+                    strokeColor="#d9e3d0"
+                    strokeWidth={3}
+                    lineDashPattern={[10, 6]}
+                  />
+                )}
+
+                {/* Waypoint markers */}
+                {waypoints.map((wp, index) => (
+                  <Marker
+                    key={wp.id || index}
+                    coordinate={{
+                      latitude: wp.latitude,
+                      longitude: wp.longitude,
+                    }}
+                    title={wp.name || wp.waypoint_type}
+                    description={`${wp.waypoint_type.charAt(0).toUpperCase() + wp.waypoint_type.slice(1)} #${index + 1}`}
+                  >
+                    <View
+                      style={[
+                        styles.waypointMarker,
+                        {
+                          backgroundColor:
+                            WAYPOINT_COLORS[wp.waypoint_type] || '#f1c40f',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          (WAYPOINT_ICONS[wp.waypoint_type] || 'location') as any
+                        }
+                        size={12}
+                        color="#fff"
+                      />
+                      <Text style={styles.waypointMarkerText}>{index + 1}</Text>
+                    </View>
+                  </Marker>
+                ))}
+              </MapView>
+
+              {/* Tap to expand overlay */}
+              <TouchableOpacity
+                style={styles.mapOverlay}
+                activeOpacity={0.7}
+                onPress={() => {
+                  // Fit map to all markers
+                  if (mapRef.current && waypoints.length > 0) {
+                    mapRef.current.animateToRegion(
+                      getRegionForWaypoints(waypoints),
+                      500
+                    );
+                  }
+                }}
+              >
+                <Ionicons name="expand-outline" size={16} color="#d9e3d0" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Waypoint list */}
+            <View style={styles.waypointList}>
+              {waypoints.map((wp, index) => {
+                const isStart = wp.waypoint_type === 'start';
+                const isEnd = wp.waypoint_type === 'end';
+                const color = WAYPOINT_COLORS[wp.waypoint_type] || '#f1c40f';
+
+                return (
+                  <View key={wp.id || index} style={styles.waypointRow}>
+                    {/* Connector line + dot */}
+                    <View style={styles.waypointTimeline}>
+                      {index > 0 && (
+                        <View style={styles.timelineLineTop} />
+                      )}
+                      <View
+                        style={[styles.timelineDot, { backgroundColor: color }]}
+                      >
+                        <Ionicons
+                          name={
+                            (WAYPOINT_ICONS[wp.waypoint_type] ||
+                              'location') as any
+                          }
+                          size={10}
+                          color="#fff"
+                        />
+                      </View>
+                      {index < waypoints.length - 1 && (
+                        <View style={styles.timelineLineBottom} />
+                      )}
+                    </View>
+
+                    {/* Waypoint info */}
+                    <View style={styles.waypointInfo}>
+                      <View style={styles.waypointNameRow}>
+                        <Text style={styles.waypointName} numberOfLines={1}>
+                          {wp.name ||
+                            `${wp.waypoint_type.charAt(0).toUpperCase() + wp.waypoint_type.slice(1)} #${index + 1}`}
+                        </Text>
+                        <View
+                          style={[
+                            styles.waypointTypeBadge,
+                            { backgroundColor: `${color}20`, borderColor: `${color}40` },
+                          ]}
+                        >
+                          <Text
+                            style={[styles.waypointTypeText, { color }]}
+                          >
+                            {isStart ? 'START' : isEnd ? 'END' : `CP ${index}`}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.waypointCoords}>
+                        {wp.latitude.toFixed(5)}, {wp.longitude.toFixed(5)}
+                        {wp.radius_meters
+                          ? ` · ${wp.radius_meters}m radius`
+                          : ''}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* ── Progress section ── */}
         <View style={styles.section}>
@@ -496,7 +709,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#5c5f3d',
   },
 
-  // Header — matches account.tsx / community-settings.tsx
+  // Header
   headerContainer: {
     backgroundColor: '#4a4d2e',
     paddingTop:
@@ -598,6 +811,127 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#d9e3d0',
     marginLeft: 8,
+  },
+
+  // ── Route Map styles ──
+  routeBadge: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(46, 204, 113, 0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  routeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#2ecc71',
+  },
+  routeMapContainer: {
+    height: 220,
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginBottom: 14,
+    position: 'relative',
+  },
+  routeMap: {
+    flex: 1,
+  },
+  mapOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 8,
+    padding: 6,
+  },
+  waypointMarker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 2,
+  },
+  waypointMarkerText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
+  // Waypoint list (timeline style)
+  waypointList: {
+    paddingLeft: 4,
+  },
+  waypointRow: {
+    flexDirection: 'row',
+    minHeight: 52,
+  },
+  waypointTimeline: {
+    width: 28,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  timelineLineTop: {
+    position: 'absolute',
+    top: 0,
+    width: 2,
+    height: '50%',
+    backgroundColor: 'rgba(217, 227, 208, 0.2)',
+  },
+  timelineLineBottom: {
+    position: 'absolute',
+    bottom: 0,
+    width: 2,
+    height: '50%',
+    backgroundColor: 'rgba(217, 227, 208, 0.2)',
+  },
+  timelineDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    top: '50%',
+    marginTop: -11,
+    zIndex: 1,
+  },
+  waypointInfo: {
+    flex: 1,
+    paddingLeft: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  waypointNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  waypointName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#d9e3d0',
+    flex: 1,
+    marginRight: 8,
+  },
+  waypointTypeBadge: {
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  waypointTypeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  waypointCoords: {
+    fontSize: 11,
+    color: '#8a8d6a',
+    marginTop: 3,
   },
 
   // Progress

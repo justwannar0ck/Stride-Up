@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   FlatList, Alert, ActivityIndicator, ScrollView,
@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { challengeService, RouteWaypoint, GeocodedPlace } from './services/challengeService';
+import { setPendingWaypoints } from './route-store';
 
 const WAYPOINT_COLORS: Record<string, string> = {
   start: '#2ecc71',
@@ -22,17 +23,42 @@ const WAYPOINT_ICONS: Record<string, string> = {
 
 export default function RouteBuilderScreen() {
   const router = useRouter();
-  const { communityId } = useLocalSearchParams<{ communityId: string }>();
+  const { communityId, existingWaypoints } = useLocalSearchParams<{
+    communityId: string;
+    existingWaypoints?: string;
+  }>();
   const mapRef = useRef<MapView>(null);
 
-  // Waypoints the admin is building
   const [waypoints, setWaypoints] = useState<RouteWaypoint[]>([]);
   const [addMode, setAddMode] = useState<'tap' | 'search' | null>(null);
 
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GeocodedPlace[]>([]);
   const [searching, setSearching] = useState(false);
+
+  // Load existing waypoints if editing
+  useEffect(() => {
+    if (existingWaypoints) {
+      try {
+        const parsed = JSON.parse(existingWaypoints);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setWaypoints(parsed);
+          if (parsed[0] && mapRef.current) {
+            setTimeout(() => {
+              mapRef.current?.animateToRegion({
+                latitude: parsed[0].latitude,
+                longitude: parsed[0].longitude,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+              });
+            }, 500);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse existing waypoints:', e);
+      }
+    }
+  }, [existingWaypoints]);
 
   // ── Helpers ──
   const getWaypointType = (index: number, total: number): RouteWaypoint['waypoint_type'] => {
@@ -49,7 +75,6 @@ export default function RouteBuilderScreen() {
     }));
   };
 
-  // ── Add waypoint by tapping the map ──
   const handleMapPress = useCallback(
     (e: any) => {
       if (addMode !== 'tap') return;
@@ -57,7 +82,7 @@ export default function RouteBuilderScreen() {
       const { latitude, longitude } = e.nativeEvent.coordinate;
       const newWp: RouteWaypoint = {
         order: waypoints.length,
-        waypoint_type: 'checkpoint', // will be recomputed
+        waypoint_type: 'checkpoint',
         latitude,
         longitude,
         name: '',
@@ -70,7 +95,6 @@ export default function RouteBuilderScreen() {
     [addMode, waypoints]
   );
 
-  // ── Add waypoint by searching ──
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setSearching(true);
@@ -90,7 +114,7 @@ export default function RouteBuilderScreen() {
       waypoint_type: 'checkpoint',
       latitude: place.latitude,
       longitude: place.longitude,
-      name: place.name.split(',')[0], // short name
+      name: place.name.split(',')[0],
       radius_meters: 50,
     };
 
@@ -100,7 +124,6 @@ export default function RouteBuilderScreen() {
     setSearchQuery('');
     setAddMode(null);
 
-    // Fly to the newly added point
     mapRef.current?.animateToRegion({
       latitude: place.latitude,
       longitude: place.longitude,
@@ -109,14 +132,12 @@ export default function RouteBuilderScreen() {
     });
   };
 
-  // ── Remove a waypoint ──
   const removeWaypoint = (index: number) => {
     const updated = [...waypoints];
     updated.splice(index, 1);
     setWaypoints(recomputeTypes(updated));
   };
 
-  // ── Reorder a waypoint (drag) ──
   const handleMarkerDragEnd = (index: number, e: any) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     const updated = [...waypoints];
@@ -124,7 +145,6 @@ export default function RouteBuilderScreen() {
     setWaypoints(updated);
   };
 
-  // ── Edit waypoint name ──
   const editWaypointName = (index: number, newName: string) => {
     const updated = [...waypoints];
     updated[index] = { ...updated[index], name: newName };
@@ -132,23 +152,19 @@ export default function RouteBuilderScreen() {
   };
 
   // ── Save and go back ──
+  // Store waypoints in the shared module-level store, then simply go back.
+  // challenge-create picks them up via useFocusEffect.
+  // This avoids router.replace() which was creating duplicate pages.
   const handleSave = () => {
     if (waypoints.length < 2) {
       Alert.alert('Not enough points', 'You need at least a Start and an End point.');
       return;
     }
 
-    // Navigate back to challenge-create WITH the waypoints as a param
-    router.replace({
-      pathname: '/challenge-create',
-      params: {
-        communityId: communityId,
-        routeWaypoints: JSON.stringify(waypoints),
-      },
-    });
+    setPendingWaypoints(waypoints);
+    router.back();
   };
 
-  // ── Polyline coords for the route ──
   const polyCoords = waypoints.map((wp) => ({
     latitude: wp.latitude,
     longitude: wp.longitude,
@@ -188,7 +204,7 @@ export default function RouteBuilderScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search bar (visible when search mode) */}
+      {/* Search bar */}
       {addMode === 'search' && (
         <View style={styles.searchContainer}>
           <TextInput
@@ -244,7 +260,6 @@ export default function RouteBuilderScreen() {
           }}
           onPress={handleMapPress}
         >
-          {/* Route line */}
           {polyCoords.length > 1 && (
             <Polyline
               coordinates={polyCoords}
@@ -254,7 +269,6 @@ export default function RouteBuilderScreen() {
             />
           )}
 
-          {/* Waypoint markers */}
           {waypoints.map((wp, index) => (
             <Marker
               key={index}
@@ -282,7 +296,7 @@ export default function RouteBuilderScreen() {
         </MapView>
       </View>
 
-      {/* Waypoint list (bottom panel) */}
+      {/* Waypoint list */}
       <View style={styles.waypointList}>
         <Text style={styles.waypointListTitle}>
           Waypoints ({waypoints.length})
@@ -327,7 +341,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#d9e3d0' },
   saveBtn: { color: '#2ecc71', fontWeight: '700', fontSize: 15 },
-
   modeRow: {
     flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 8,
   },
@@ -337,7 +350,6 @@ const styles = StyleSheet.create({
   },
   modeBtnActive: { backgroundColor: 'rgba(46,204,113,0.3)', borderWidth: 1, borderColor: '#2ecc71' },
   modeBtnText: { color: '#d9e3d0', fontSize: 13, fontWeight: '600' },
-
   searchContainer: {
     flexDirection: 'row', paddingHorizontal: 16, marginBottom: 8, gap: 8,
   },
@@ -358,16 +370,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   searchResultText: { color: '#d9e3d0', fontSize: 13, flex: 1 },
-
   mapContainer: { flex: 1, marginHorizontal: 16, borderRadius: 16, overflow: 'hidden' },
   map: { flex: 1 },
-
   waypointMarker: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8,
     paddingVertical: 4, borderRadius: 12, gap: 3,
   },
   waypointMarkerText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-
   waypointList: {
     padding: 16, backgroundColor: 'rgba(0,0,0,0.2)', borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

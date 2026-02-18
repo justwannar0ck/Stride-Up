@@ -109,7 +109,7 @@ export default function CommunityDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header with balanced spacing for center-aligned title */}
+      {/* Header */}
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -209,7 +209,7 @@ export default function CommunityDetailScreen() {
             {community.activity_types?.length > 0 && (
               <>
                 <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Activity Focus</Text>
-                <div style={styles.tagsRow}>
+                <View style={styles.tagsRow}>
                   {community.activity_types.map((type) => (
                     <View key={type} style={styles.tag}>
                       <Text style={styles.tagText}>
@@ -217,7 +217,7 @@ export default function CommunityDetailScreen() {
                       </Text>
                     </View>
                   ))}
-                </div>
+                </View>
               </>
             )}
 

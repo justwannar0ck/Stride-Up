@@ -372,7 +372,11 @@ class ChallengeViewSet(viewsets.ModelViewSet):
             )
 
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            print("=== SERIALIZER ERRORS ===")
+            print(serializer.errors)
+            print("=========================")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         from django.utils import timezone
         start = serializer.validated_data['start_date']

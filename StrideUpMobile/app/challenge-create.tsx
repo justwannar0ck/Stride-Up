@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import DateTimePicker, {
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
@@ -22,6 +22,7 @@ import {
   ContributionScope,
   ActivityType,
 } from './services/challengeService';
+import { consumePendingWaypoints } from './route-store';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -48,12 +49,7 @@ const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: string }[] = [
 
 export default function ChallengeCreateScreen() {
   const router = useRouter();
-
-  // Updated: also read routeWaypoints param returned from the route builder
-  const { communityId, routeWaypoints: returnedWaypoints } = useLocalSearchParams<{
-    communityId: string;
-    routeWaypoints?: string;
-  }>();
+  const { communityId } = useLocalSearchParams<{ communityId: string }>();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -64,7 +60,7 @@ export default function ChallengeCreateScreen() {
   const [targetValue, setTargetValue] = useState('');
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
   );
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -72,27 +68,24 @@ export default function ChallengeCreateScreen() {
   const [isRouteChallenge, setIsRouteChallenge] = useState(false);
   const [routeWaypoints, setRouteWaypoints] = useState<any[]>([]);
 
-  // Pick up waypoints returned from the Route Builder screen
-  useEffect(() => {
-    if (returnedWaypoints) {
-      try {
-        const parsed = JSON.parse(returnedWaypoints);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setRouteWaypoints(parsed);
-          setIsRouteChallenge(true);
-        }
-      } catch (e) {
-        console.error('Failed to parse route waypoints:', e);
+  // Check for pending waypoints every time this screen gets focus
+  // (i.e. when route-builder calls router.back() and we return here)
+  useFocusEffect(
+    useCallback(() => {
+      const pending = consumePendingWaypoints();
+      if (pending && pending.length > 0) {
+        setRouteWaypoints(pending);
+        setIsRouteChallenge(true);
       }
-    }
-  }, [returnedWaypoints]);
+    }, [])
+  );
 
   const selectedTypeConfig = CHALLENGE_TYPES.find((t) => t.value === challengeType)!;
 
   const toggleActivity = (type: ActivityType) => {
     setSelectedActivities((prev) => {
       if (prev.includes(type)) {
-        if (prev.length === 1) return prev; // Keep at least one
+        if (prev.length === 1) return prev;
         return prev.filter((t) => t !== type);
       }
       return [...prev, type];
@@ -129,7 +122,6 @@ export default function ChallengeCreateScreen() {
       Alert.alert('Error', 'End date must be after start date.');
       return;
     }
-    // Route validation
     if (isRouteChallenge && routeWaypoints.length < 2) {
       Alert.alert(
         'Route Incomplete',
@@ -150,7 +142,6 @@ export default function ChallengeCreateScreen() {
         target_unit: selectedTypeConfig.unit,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
-        // Route data
         is_route_challenge: isRouteChallenge,
         route_waypoints: isRouteChallenge ? routeWaypoints : undefined,
       } as any);
@@ -364,12 +355,11 @@ export default function ChallengeCreateScreen() {
             <Text style={styles.sectionTitle}>Route Challenge</Text>
           </View>
 
-          {/* Toggle row */}
           <TouchableOpacity
             style={styles.routeToggle}
             onPress={() => {
               setIsRouteChallenge(!isRouteChallenge);
-              if (isRouteChallenge) setRouteWaypoints([]); // clear waypoints if toggling off
+              if (isRouteChallenge) setRouteWaypoints([]);
             }}
             activeOpacity={0.7}
           >
@@ -396,15 +386,22 @@ export default function ChallengeCreateScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* Build Route button — only shown when toggle is ON */}
           {isRouteChallenge && (
             <View style={{ marginTop: 14 }}>
               <TouchableOpacity
                 style={styles.buildRouteButton}
                 onPress={() => {
+                  // Just push — form state lives in React state on this screen,
+                  // which survives because we use router.back() to return
                   router.push({
                     pathname: '/route-builder',
-                    params: { communityId },
+                    params: {
+                      communityId,
+                      existingWaypoints:
+                        routeWaypoints.length > 0
+                          ? JSON.stringify(routeWaypoints)
+                          : undefined,
+                    },
                   });
                 }}
               >
@@ -417,7 +414,6 @@ export default function ChallengeCreateScreen() {
                 <Ionicons name="chevron-forward" size={18} color="#4a4d2e" />
               </TouchableOpacity>
 
-              {/* Mini summary of waypoints if any exist */}
               {routeWaypoints.length > 0 && (
                 <View style={styles.waypointsSummary}>
                   {routeWaypoints.map((wp: any, index: number) => (
@@ -446,7 +442,6 @@ export default function ChallengeCreateScreen() {
                 </View>
               )}
 
-              {/* Warning if toggle is on but no waypoints */}
               {routeWaypoints.length === 0 && (
                 <View style={styles.routeWarning}>
                   <Ionicons name="warning-outline" size={14} color="#f39c12" />
@@ -543,8 +538,6 @@ export default function ChallengeCreateScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#5c5f3d' },
-
-  // Header — matches account.tsx pattern
   headerContainer: {
     backgroundColor: '#4a4d2e',
     paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 30) + 10,
@@ -565,11 +558,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   placeholder: { width: 32 },
-
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
-
-  // Sections
   section: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 16,
@@ -587,8 +577,6 @@ const styles = StyleSheet.create({
     color: '#d9e3d0',
     marginLeft: 8,
   },
-
-  // Form
   label: {
     fontSize: 13,
     fontWeight: '600',
@@ -611,8 +599,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 16,
   },
-
-  // Type cards
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -644,8 +630,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   typeUnitActive: { color: '#5c5f3d' },
-
-  // Scope
   scopeRow: { gap: 10 },
   scopeCard: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
@@ -677,8 +661,6 @@ const styles = StyleSheet.create({
     marginLeft: 30,
   },
   scopeDescActive: { color: '#5c5f3d' },
-
-  // Target
   targetRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -696,8 +678,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#d9e3d0',
   },
-
-  // Activity chips
   activityGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -724,8 +704,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   activityChipTextActive: { color: '#4a4d2e' },
-
-  // Dates
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -751,8 +729,6 @@ const styles = StyleSheet.create({
     color: '#d9e3d0',
     marginLeft: 8,
   },
-
-  // Submit
   submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -768,8 +744,6 @@ const styles = StyleSheet.create({
     color: '#4a4d2e',
     marginLeft: 8,
   },
-
-  // Route challenge styles
   routeToggle: {
     flexDirection: 'row',
     alignItems: 'center',

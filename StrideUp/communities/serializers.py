@@ -23,10 +23,6 @@ class CommunityListSerializer(serializers.ModelSerializer):
         ]
     
     def get_is_member(self, obj):
-        if hasattr(obj, 'active_members_count'):
-            return obj.active_members_count
-    
-    def get_is_member(self, obj):
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return obj.memberships.filter(
@@ -60,7 +56,6 @@ class CommunityDetailSerializer(serializers.ModelSerializer):
     is_member = serializers.SerializerMethodField()
     my_role = serializers.SerializerMethodField()
     pending_count = serializers.SerializerMethodField()
-    # Placeholder: upcoming challenges count
     active_challenges_count = serializers.SerializerMethodField()
     
     class Meta:
@@ -151,7 +146,6 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Target value must be positive.')
         if not data.get('activity_types'):
             raise serializers.ValidationError('At least one activity type is required.')
-        # Validate activity types are valid
         valid_types = ['run', 'walk', 'cycle', 'hike']
         for t in data['activity_types']:
             if t not in valid_types:
@@ -192,6 +186,30 @@ class ChallengeParticipantSerializer(serializers.ModelSerializer):
         return obj.user.get_full_name()
 
 
+# RouteWaypointSerializer MUST be declared BEFORE ChallengeDetailSerializer
+class RouteWaypointSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChallengeRouteWaypoint
+        fields = [
+            'id', 'order', 'waypoint_type', 'latitude',
+            'longitude', 'name', 'radius_meters',
+        ]
+        read_only_fields = ['id']
+
+
+class RouteWaypointCreateSerializer(serializers.Serializer):
+    """For incoming waypoint data when creating a route challenge."""
+    order = serializers.IntegerField()
+    waypoint_type = serializers.ChoiceField(
+        choices=ChallengeRouteWaypoint.WaypointType.choices
+    )
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    # ── THE FIX: allow_blank=True so empty waypoint names don't cause 400 ──
+    name = serializers.CharField(max_length=200, required=False, default='', allow_blank=True)
+    radius_meters = serializers.IntegerField(required=False, default=50)
+
+
 class ChallengeListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for listing challenges."""
     participants_count = serializers.IntegerField(read_only=True)
@@ -213,7 +231,7 @@ class ChallengeListSerializer(serializers.ModelSerializer):
             'target_unit', 'start_date', 'end_date', 'status',
             'current_status', 'participants_count', 'total_progress',
             'progress_percentage', 'is_joined', 'created_by_username',
-            'created_at','community_name', 'community_id', 'is_route_challenge',
+            'created_at', 'community_name', 'community_id', 'is_route_challenge',
         ]
 
     def get_is_joined(self, obj):
@@ -228,6 +246,8 @@ class ChallengeDetailSerializer(ChallengeListSerializer):
     leaderboard = serializers.SerializerMethodField()
     my_progress = serializers.SerializerMethodField()
     recent_contributions = serializers.SerializerMethodField()
+    # ── THE FIX: explicitly declare the nested serializer field ──
+    route_waypoints = RouteWaypointSerializer(many=True, read_only=True)
 
     class Meta(ChallengeListSerializer.Meta):
         fields = ChallengeListSerializer.Meta.fields + [
@@ -258,24 +278,3 @@ class ChallengeDetailSerializer(ChallengeListSerializer):
     def get_recent_contributions(self, obj):
         recent = obj.contributions.order_by('-contributed_at')[:10]
         return ChallengeContributionSerializer(recent, many=True).data
-    
-class RouteWaypointSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ChallengeRouteWaypoint
-        fields = [
-            'id', 'order', 'waypoint_type', 'latitude',
-            'longitude', 'name', 'radius_meters',
-        ]
-        read_only_fields = ['id']
-
-
-class RouteWaypointCreateSerializer(serializers.Serializer):
-    """For incoming waypoint data when creating a route challenge."""
-    order = serializers.IntegerField()
-    waypoint_type = serializers.ChoiceField(
-        choices=ChallengeRouteWaypoint.WaypointType.choices
-    )
-    latitude = serializers.FloatField()
-    longitude = serializers.FloatField()
-    name = serializers.CharField(max_length=200, required=False, default='')
-    radius_meters = serializers.IntegerField(required=False, default=50)
