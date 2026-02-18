@@ -46,6 +46,7 @@ export interface Challenge {
   is_joined: boolean;
   created_by_username: string;
   created_at: string;
+  is_route_challenge: boolean;
 }
 
 export interface ChallengeDetail extends Challenge {
@@ -57,6 +58,7 @@ export interface ChallengeDetail extends Challenge {
     percentage: number;
   } | null;
   recent_contributions: ChallengeContribution[];
+  route_waypoints: RouteWaypoint[];
 }
 
 export interface CreateChallengeData {
@@ -69,6 +71,34 @@ export interface CreateChallengeData {
   target_unit: string;
   start_date: string;
   end_date: string;
+  is_route_challenge?: boolean;
+  route_waypoints?: Omit<RouteWaypoint, 'id'>[];
+}
+
+export interface ChallengeWithCommunity extends Challenge {
+  community_name: string;
+  community_id: number;
+}
+
+export interface ChallengeFeedResponse {
+  my_challenges: ChallengeWithCommunity[];
+  discover_challenges: ChallengeWithCommunity[];
+}
+
+export interface RouteWaypoint {
+  id?: number;
+  order: number;
+  waypoint_type: 'start' | 'checkpoint' | 'end';
+  latitude: number;
+  longitude: number;
+  name: string;
+  radius_meters: number;
+}
+
+export interface GeocodedPlace {
+  name: string;
+  latitude: number;
+  longitude: number;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -94,6 +124,11 @@ export const challengeService = {
     const response = await api.get(
       `/api/v1/communities/${communityId}/challenges/${challengeId}/`
     );
+    return response.data;
+  },
+
+  getChallengeFeed: async (): Promise<ChallengeFeedResponse> => {
+    const response = await api.get('/api/v1/challenges/feed/');
     return response.data;
   },
 
@@ -162,6 +197,13 @@ export const challengeService = {
     const response = await api.post(
       `/api/v1/communities/${communityId}/challenges/${challengeId}/leave/`
     );
+    return response.data;
+  },
+
+  geocode: async (query: string): Promise<GeocodedPlace[]> => {
+    const response = await api.get('/api/v1/geocode/', {
+      params: { q: query },
+    });
     return response.data;
   },
 };

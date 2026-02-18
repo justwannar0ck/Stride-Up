@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,7 @@ import {
   ActivityType,
 } from './services/challengeService';
 
-// ─── Config ──────────────────────��───────────────────────────────────────────
+// ─── Config ──────────────────────────────────────────────────────────────────
 
 const CHALLENGE_TYPES: {
   value: ChallengeType;
@@ -48,7 +48,12 @@ const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: string }[] = [
 
 export default function ChallengeCreateScreen() {
   const router = useRouter();
-  const { communityId } = useLocalSearchParams<{ communityId: string }>();
+
+  // Updated: also read routeWaypoints param returned from the route builder
+  const { communityId, routeWaypoints: returnedWaypoints } = useLocalSearchParams<{
+    communityId: string;
+    routeWaypoints?: string;
+  }>();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -64,6 +69,23 @@ export default function ChallengeCreateScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRouteChallenge, setIsRouteChallenge] = useState(false);
+  const [routeWaypoints, setRouteWaypoints] = useState<any[]>([]);
+
+  // Pick up waypoints returned from the Route Builder screen
+  useEffect(() => {
+    if (returnedWaypoints) {
+      try {
+        const parsed = JSON.parse(returnedWaypoints);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRouteWaypoints(parsed);
+          setIsRouteChallenge(true);
+        }
+      } catch (e) {
+        console.error('Failed to parse route waypoints:', e);
+      }
+    }
+  }, [returnedWaypoints]);
 
   const selectedTypeConfig = CHALLENGE_TYPES.find((t) => t.value === challengeType)!;
 
@@ -107,6 +129,14 @@ export default function ChallengeCreateScreen() {
       Alert.alert('Error', 'End date must be after start date.');
       return;
     }
+    // Route validation
+    if (isRouteChallenge && routeWaypoints.length < 2) {
+      Alert.alert(
+        'Route Incomplete',
+        'Route challenges need at least a Start and End point. Tap "Build Route on Map" to add them.'
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -120,7 +150,10 @@ export default function ChallengeCreateScreen() {
         target_unit: selectedTypeConfig.unit,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
-      });
+        // Route data
+        is_route_challenge: isRouteChallenge,
+        route_waypoints: isRouteChallenge ? routeWaypoints : undefined,
+      } as any);
 
       Alert.alert('Created!', 'Your challenge is live.', [
         { text: 'OK', onPress: () => router.back() },
@@ -322,6 +355,108 @@ export default function ChallengeCreateScreen() {
               );
             })}
           </View>
+        </View>
+
+        {/* ── Route Challenge Toggle ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="navigate-outline" size={18} color="#d9e3d0" />
+            <Text style={styles.sectionTitle}>Route Challenge</Text>
+          </View>
+
+          {/* Toggle row */}
+          <TouchableOpacity
+            style={styles.routeToggle}
+            onPress={() => {
+              setIsRouteChallenge(!isRouteChallenge);
+              if (isRouteChallenge) setRouteWaypoints([]); // clear waypoints if toggling off
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.routeToggleLabel}>
+                Enable Route Challenge
+              </Text>
+              <Text style={styles.routeToggleDesc}>
+                Define a specific route with checkpoints that challengers must follow
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.toggleTrack,
+                isRouteChallenge && styles.toggleTrackActive,
+              ]}
+            >
+              <View
+                style={[
+                  styles.toggleThumb,
+                  isRouteChallenge && styles.toggleThumbActive,
+                ]}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {/* Build Route button — only shown when toggle is ON */}
+          {isRouteChallenge && (
+            <View style={{ marginTop: 14 }}>
+              <TouchableOpacity
+                style={styles.buildRouteButton}
+                onPress={() => {
+                  router.push({
+                    pathname: '/route-builder',
+                    params: { communityId },
+                  });
+                }}
+              >
+                <Ionicons name="map-outline" size={20} color="#4a4d2e" />
+                <Text style={styles.buildRouteButtonText}>
+                  {routeWaypoints.length > 0
+                    ? `Edit Route (${routeWaypoints.length} points)`
+                    : 'Build Route on Map'}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color="#4a4d2e" />
+              </TouchableOpacity>
+
+              {/* Mini summary of waypoints if any exist */}
+              {routeWaypoints.length > 0 && (
+                <View style={styles.waypointsSummary}>
+                  {routeWaypoints.map((wp: any, index: number) => (
+                    <View key={index} style={styles.waypointSummaryRow}>
+                      <View
+                        style={[
+                          styles.waypointDot,
+                          {
+                            backgroundColor:
+                              wp.waypoint_type === 'start'
+                                ? '#2ecc71'
+                                : wp.waypoint_type === 'end'
+                                ? '#e74c3c'
+                                : '#f1c40f',
+                          },
+                        ]}
+                      />
+                      <Text style={styles.waypointSummaryText} numberOfLines={1}>
+                        {wp.name || `${wp.waypoint_type} #${index + 1}`}
+                      </Text>
+                      <Text style={styles.waypointSummaryCoords}>
+                        {wp.latitude.toFixed(4)}, {wp.longitude.toFixed(4)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Warning if toggle is on but no waypoints */}
+              {routeWaypoints.length === 0 && (
+                <View style={styles.routeWarning}>
+                  <Ionicons name="warning-outline" size={14} color="#f39c12" />
+                  <Text style={styles.routeWarningText}>
+                    Tap "Build Route on Map" to place your start, checkpoints, and end
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* ── Dates ── */}
@@ -632,5 +767,99 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#4a4d2e',
     marginLeft: 8,
+  },
+
+  // Route challenge styles
+  routeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    padding: 14,
+  },
+  routeToggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#d9e3d0',
+  },
+  routeToggleDesc: {
+    fontSize: 12,
+    color: '#8a8d6a',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  toggleTrack: {
+    width: 46,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    padding: 3,
+    marginLeft: 12,
+  },
+  toggleTrackActive: {
+    backgroundColor: '#2ecc71',
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#8a8d6a',
+  },
+  toggleThumbActive: {
+    backgroundColor: '#fff',
+    alignSelf: 'flex-end' as any,
+  },
+  buildRouteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#d9e3d0',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  buildRouteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4a4d2e',
+    flex: 1,
+  },
+  waypointsSummary: {
+    marginTop: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  waypointSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    gap: 8,
+  },
+  waypointDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  waypointSummaryText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#d9e3d0',
+    fontWeight: '500',
+  },
+  waypointSummaryCoords: {
+    fontSize: 11,
+    color: '#8a8d6a',
+  },
+  routeWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 6,
+  },
+  routeWarningText: {
+    fontSize: 12,
+    color: '#f39c12',
+    flex: 1,
   },
 });

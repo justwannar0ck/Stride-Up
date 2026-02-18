@@ -201,6 +201,12 @@ class Challenge(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Route challenge flag
+    is_route_challenge = models.BooleanField(
+        default=False,
+        help_text='Whether this is a route-based challenge with waypoints',
+    )
 
     class Meta:
         ordering = ['-created_at']
@@ -289,7 +295,7 @@ class ChallengeParticipant(models.Model):
             total=models.Sum('value')
         )['total'] or 0
         self.total_contributed = total
-        # Check individual completion
+        # Checks individual completion
         if self.challenge.contribution_scope == Challenge.ContributionScope.INDIVIDUAL:
             self.is_completed = total >= self.challenge.target_value
         self.save(update_fields=['total_contributed', 'is_completed'])
@@ -373,3 +379,52 @@ class CommunityInvite(models.Model):
     
     def __str__(self):
         return f"Invite for {self.invited_user.username} to {self.community.name}"
+
+class ChallengeRouteWaypoint(models.Model):
+    """
+    An ordered waypoint (start, checkpoint, or end) on a route challenge.
+    The admin places these when creating the challenge.
+    """
+    
+    class WaypointType(models.TextChoices):
+        START = 'start', 'Start'
+        CHECKPOINT = 'checkpoint', 'Checkpoint'
+        END = 'end', 'End'
+    
+    challenge = models.ForeignKey(
+        Challenge,
+        on_delete=models.CASCADE,
+        related_name='route_waypoints',
+    )
+    
+    # Order in the route (0 = start, last = end)
+    order = models.PositiveIntegerField()
+    
+    waypoint_type = models.CharField(
+        max_length=20,
+        choices=WaypointType.choices,
+    )
+    
+    # The actual location
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    
+    # Optional: human-readable name the admin typed/selected
+    name = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='e.g. "Thamel Gate", "Ratna Park", typed or from geocoding',
+    )
+    
+    # Radius in meters — how close a user must pass to "clear" this checkpoint
+    radius_meters = models.PositiveIntegerField(
+        default=50,
+        help_text='How close (in meters) a user must be to register as reached',
+    )
+    
+    class Meta:
+        ordering = ['order']
+        unique_together = ('challenge', 'order')
+    
+    def __str__(self):
+        return f"{self.waypoint_type}: {self.name or f'({self.latitude}, {self.longitude})'} (#{self.order})"

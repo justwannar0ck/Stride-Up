@@ -1,11 +1,6 @@
-"""
-Utility to aggregate community statistics from member activities.
-This will power both community dashboards and future challenge tracking.
-"""
 from django.db.models import Sum, Count, Avg, Q
 from activities.models import Activity
 from .models import CommunityMembership
-
 
 def get_community_stats(community, period_start=None, period_end=None):
     """

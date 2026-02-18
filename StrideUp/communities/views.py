@@ -5,6 +5,8 @@ from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from django.db.models import Q, Count
 import uuid
+from rest_framework.views import APIView
+from .models import ChallengeRouteWaypoint
 
 from .models import Community, CommunityMembership, CommunityInvite
 from .serializers import (
@@ -372,7 +374,6 @@ class ChallengeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Determine initial status based on start_date
         from django.utils import timezone
         start = serializer.validated_data['start_date']
         end = serializer.validated_data['end_date']
@@ -386,11 +387,33 @@ class ChallengeViewSet(viewsets.ModelViewSet):
 
         initial_status = Challenge.Status.ACTIVE if now >= start else Challenge.Status.UPCOMING
 
+        # Check if this is a route challenge
+        is_route = request.data.get('is_route_challenge', False)
+        waypoints_data = request.data.get('route_waypoints', [])
+
+        if is_route and len(waypoints_data) < 2:
+            return Response(
+                {'detail': 'Route challenges need at least a start and end point.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         challenge = serializer.save(
             community=community,
             created_by=request.user,
             status=initial_status,
+            is_route_challenge=is_route,
         )
+
+        # Create waypoints if route challenge
+        if is_route and waypoints_data:
+            from .serializers import RouteWaypointCreateSerializer
+            for wp_data in waypoints_data:
+                wp_serializer = RouteWaypointCreateSerializer(data=wp_data)
+                wp_serializer.is_valid(raise_exception=True)
+                ChallengeRouteWaypoint.objects.create(
+                    challenge=challenge,
+                    **wp_serializer.validated_data,
+                )
 
         return Response(
             ChallengeDetailSerializer(challenge, context={'request': request}).data,
@@ -519,3 +542,121 @@ class ChallengeViewSet(viewsets.ModelViewSet):
             {'detail': 'You are not in this challenge.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
+        
+class ChallengeFeedView(APIView):
+    """
+    GET /api/v1/challenges/feed/
+    Returns two lists:
+      - my_challenges: active/upcoming challenges from communities I'm a member of
+      - discover_challenges: active/upcoming challenges from PUBLIC communities I'm NOT a member of
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from django.utils import timezone
+        now = timezone.now()
+
+        user = request.user
+
+        # Communities the user is an active member of
+        my_community_ids = CommunityMembership.objects.filter(
+            user=user,
+            status=CommunityMembership.Status.ACTIVE,
+        ).values_list('community_id', flat=True)
+
+        # --- My Challenges: active/upcoming from my communities ---
+        my_challenges = Challenge.objects.filter(
+            community_id__in=my_community_ids,
+            status__in=[Challenge.Status.ACTIVE, Challenge.Status.UPCOMING],
+        ).select_related('community', 'created_by')
+
+        # Sync statuses
+        for c in my_challenges:
+            c.sync_status()
+
+        # Re-fetch after sync (status might have changed)
+        my_challenges = Challenge.objects.filter(
+            community_id__in=my_community_ids,
+            status__in=[Challenge.Status.ACTIVE, Challenge.Status.UPCOMING],
+        ).select_related('community', 'created_by')
+
+        # --- Discover Challenges: active/upcoming from PUBLIC communities I'm NOT in ---
+        discover_challenges = Challenge.objects.filter(
+            community__visibility=Community.Visibility.PUBLIC,
+            status__in=[Challenge.Status.ACTIVE, Challenge.Status.UPCOMING],
+        ).exclude(
+            community_id__in=my_community_ids,
+        ).select_related('community', 'created_by')
+
+        # Sync statuses
+        for c in discover_challenges:
+            c.sync_status()
+
+        discover_challenges = Challenge.objects.filter(
+            community__visibility=Community.Visibility.PUBLIC,
+            status__in=[Challenge.Status.ACTIVE, Challenge.Status.UPCOMING],
+        ).exclude(
+            community_id__in=my_community_ids,
+        ).select_related('community', 'created_by')
+
+        # Serialize both lists
+        my_data = ChallengeListSerializer(
+            my_challenges, many=True, context={'request': request}
+        ).data
+        discover_data = ChallengeListSerializer(
+            discover_challenges, many=True, context={'request': request}
+        ).data
+
+        # Add community name + id to each challenge for the frontend
+        # (You'll want to add community_name/community_id to your ChallengeListSerializer too)
+
+        return Response({
+            'my_challenges': my_data,
+            'discover_challenges': discover_data,
+        })
+
+import requests as http_requests
+
+class GeocodeView(APIView):
+    """
+    GET /api/v1/geocode/?q=Thamel+Kathmandu
+    Uses OpenStreetMap Nominatim (free, no API key) to geocode a place name.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
+        if not query:
+            return Response(
+                {'detail': 'Query parameter "q" is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            resp = http_requests.get(
+                'https://nominatim.openstreetmap.org/search',
+                params={
+                    'q': query,
+                    'format': 'json',
+                    'limit': 5,
+                    'addressdetails': 1,
+                },
+                headers={'User-Agent': 'StrideUp/1.0'},
+                timeout=5,
+            )
+            results = resp.json()
+
+            places = [
+                {
+                    'name': r.get('display_name', ''),
+                    'latitude': float(r['lat']),
+                    'longitude': float(r['lon']),
+                }
+                for r in results
+            ]
+            return Response(places)
+        except Exception as e:
+            return Response(
+                {'detail': f'Geocoding failed: {str(e)}'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
