@@ -124,7 +124,7 @@ class CommunityInviteSerializer(serializers.ModelSerializer):
             'invited_by', 'status', 'created_at', 'expires_at',
         ]
         
-# ─── Challenge Serializers ────────────────────────────────────────────────────
+# Challenge Serializers
 
 from .models import Challenge, ChallengeParticipant, ChallengeContribution
 
@@ -186,7 +186,6 @@ class ChallengeParticipantSerializer(serializers.ModelSerializer):
         return obj.user.get_full_name()
 
 
-# RouteWaypointSerializer MUST be declared BEFORE ChallengeDetailSerializer
 class RouteWaypointSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChallengeRouteWaypoint
@@ -205,7 +204,6 @@ class RouteWaypointCreateSerializer(serializers.Serializer):
     )
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
-    # ── THE FIX: allow_blank=True so empty waypoint names don't cause 400 ──
     name = serializers.CharField(max_length=200, required=False, default='', allow_blank=True)
     radius_meters = serializers.IntegerField(required=False, default=50)
 
@@ -246,7 +244,6 @@ class ChallengeDetailSerializer(ChallengeListSerializer):
     leaderboard = serializers.SerializerMethodField()
     my_progress = serializers.SerializerMethodField()
     recent_contributions = serializers.SerializerMethodField()
-    # ── THE FIX: explicitly declare the nested serializer field ──
     route_waypoints = RouteWaypointSerializer(many=True, read_only=True)
 
     class Meta(ChallengeListSerializer.Meta):

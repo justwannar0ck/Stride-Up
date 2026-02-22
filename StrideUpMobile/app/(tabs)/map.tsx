@@ -214,7 +214,7 @@ export default function MapScreen() {
         </View>
       ) : viewMode === 'map' ? (
         <>
-          {/* Map View */}
+
           <View style={styles.mapContainer}>
             <MapView
               ref={(ref) => setMapRef(ref)}
@@ -250,7 +250,6 @@ export default function MapScreen() {
               )}
             </MapView>
 
-            {/* Selected Activity Info */}
             {selectedActivity && (
               <TouchableOpacity
                 style={styles.selectedActivityCard}
@@ -288,7 +287,6 @@ export default function MapScreen() {
             )}
           </View>
 
-          {/* Activity List (horizontal) */}
           <View style={styles.activityListContainer}>
             <FlatList
               data={activities}
@@ -301,7 +299,7 @@ export default function MapScreen() {
           </View>
         </>
       ) : (
-        /* List View */
+        
         <FlatList
           data={activities}
           renderItem={({ item }) => (

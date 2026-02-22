@@ -26,7 +26,7 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
   const [status, setStatus] = useState<FollowStatus>(initialStatus);
   const [loading, setLoading] = useState(false);
 
-  // Don't render anything for the user's own profile
+  // Does'nt render anything for the user's own profile
   if (status === 'self') {
     return null;
   }
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   // Button states
   followButton: {
-    backgroundColor: '#FC4C02', // Strava orange
+    backgroundColor: '#FC4C02',
   },
   followingButton: {
     backgroundColor: '#f0f0f0',

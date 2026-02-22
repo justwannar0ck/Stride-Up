@@ -80,30 +80,24 @@ export interface FollowActionResponse {
   message: string;
 }
 
-// ============ API Service ============
+// API Service
 
 export const followService = {
-  // -------- User Profile --------
-  
-  /**
-   * Get current user's profile with follow stats
-   */
+  // User Profile
+
+  // Gets current user's profile with follow stats
   getMyProfile: async (): Promise<UserProfile> => {
     const response = await api.get('/api/users/me/');
     return response.data;
   },
 
-  /**
-   * Get a user's profile by username
-   */
+  // Gets a user's profile by username
   getUserProfile: async (username: string): Promise<UserProfile> => {
     const response = await api.get(`/api/users/${username}/`);
     return response.data;
   },
 
-  /**
-   * Search for users
-   */
+  // Searchs for users
   searchUsers: async (query: string): Promise<UserMinimal[]> => {
     if (query.length < 2) return [];
     const response = await api.get('/api/search/users/', {
@@ -112,79 +106,61 @@ export const followService = {
     return response.data;
   },
 
-  // -------- Followers/Following Lists --------
+  // Followers/Following Lists
 
-  /**
-   * Get a user's followers
-   */
+  // Gets a user's followers
   getFollowers: async (username: string): Promise<FollowerItem[]> => {
     const response = await api.get(`/api/users/${username}/followers/`);
     return response.data;
   },
 
-  /**
-   * Get users that a user is following
-   */
+  // Gets users that a user is following
   getFollowing: async (username: string): Promise<FollowingItem[]> => {
     const response = await api.get(`/api/users/${username}/following/`);
     return response.data;
   },
 
-  // -------- Follow Actions --------
+  // Follow Action
 
-  /**
-   * Follow a user (or send follow request if private)
-   */
+  // Follow a user (or send follow request if private)
   followUser: async (username: string): Promise<FollowActionResponse> => {
     const response = await api.post(`/api/follow/${username}/`);
     return response.data;
   },
 
-  /**
-   * Unfollow a user or cancel follow request
-   */
+  // Unfollow a user or cancel follow request
   unfollowUser: async (username: string): Promise<FollowActionResponse> => {
     const response = await api.delete(`/api/follow/${username}/unfollow/`);
     return response.data;
   },
 
-  /**
-   * Remove a user from your followers
-   */
+  // Removes a user from followers
   removeFollower: async (username: string): Promise<{ message: string }> => {
     const response = await api.delete(`/api/follow/${username}/remove/`);
     return response.data;
   },
 
-  // -------- Follow Requests --------
+  // Follow Requests
 
-  /**
-   * Get pending follow requests
-   */
+  // Gets pending follow requests
   getFollowRequests: async (): Promise<FollowRequestsResponse> => {
     const response = await api.get('/api/follow-requests/');
     return response.data;
   },
 
-  /**
-   * Accept a follow request
-   */
+  // Accepts a follow request
   acceptFollowRequest: async (requestId: number): Promise<{ message: string }> => {
     const response = await api.post(`/api/follow-requests/${requestId}/accept/`);
     return response.data;
   },
 
-  /**
-   * Reject a follow request
-   */
+  // Rejects a follow request
   rejectFollowRequest: async (requestId: number): Promise<{ message: string }> => {
     const response = await api.post(`/api/follow-requests/${requestId}/reject/`);
     return response.data;
   },
 
-  /**
-   * Accept all pending follow requests
-   */
+  // Accept all pending follow requests
   acceptAllFollowRequests: async (): Promise<{ message: string }> => {
     const response = await api.post('/api/follow-requests/accept_all/');
     return response.data;
@@ -197,27 +173,21 @@ export const followService = {
     return response.data;
   },
 
-    // -------- Likes --------
+    // Interactions
 
-  /**
-   * Like an activity
-   */
+  // Like an activity
   likeActivity: async (activityId: number): Promise<{ message: string; likes_count: number }> => {
     const response = await api.post(`/api/v1/activities/${activityId}/like/`);
     return response.data;
   },
 
-  /**
-   * Unlike an activity
-   */
+  // Unlike an activity
   unlikeActivity: async (activityId: number): Promise<{ message: string; likes_count: number }> => {
   const response = await api.delete(`/api/v1/activities/${activityId}/like/`);
   return response.data;
 },
 
-  /**
-   * Get users who liked an activity
-   */
+  // Get users who liked an activity
   getActivityLikes: async (activityId: number): Promise<{ count: number; results: UserMinimal[] }> => {
     const response = await api.get(`/api/v1/activities/${activityId}/likes/`);
     return response.data;

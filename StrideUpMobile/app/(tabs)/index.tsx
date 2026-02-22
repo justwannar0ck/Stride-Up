@@ -137,7 +137,6 @@ export default function HomeScreen() {
         <Text style={styles.pageTitle}>Home</Text>
       </View>
 
-      {/* Weekly Summary Card */}
       <View style={styles.weeklyCard}>
         <View style={styles.weeklyHeader}>
           <Text style={styles.weeklyTitle}>This Week</Text>
@@ -167,7 +166,7 @@ export default function HomeScreen() {
             <Text style={styles.weeklyStatLabel}>calories</Text>
           </View>
         </View>
-        {/* Progress Bar */}
+
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
             <View
@@ -183,7 +182,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Quick Stats Grid */}
       <View style={styles.statsGrid}>
         <View style={styles.statCard}>
           <Ionicons name="speedometer-outline" size={24} color="#4CAF50" />
@@ -206,7 +204,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Personal Bests */}
       {stats?.personal_bests && stats.personal_bests.longest_distance_km > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Bests 🏆</Text>
@@ -236,7 +233,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Recent Activities */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles. sectionTitle}>Recent Activities</Text>
@@ -299,7 +295,6 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Quick Start Button */}
       {recentActivities.length > 0 && (
         <TouchableOpacity
           style={styles. floatingButton}
@@ -310,7 +305,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Bottom Spacing */}
       <View style={styles.bottomSpacing} />
     </ScrollView>
   );

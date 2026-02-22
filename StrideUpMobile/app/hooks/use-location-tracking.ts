@@ -8,10 +8,10 @@ const LOCATION_TASK_NAME = 'background-location-task';
 const LOCATION_INTERVAL = 3000; // 3 seconds
 const LOCATION_DISTANCE_FILTER = 5; // 5 meters minimum movement
 
-// Store for background task data
+// Stores for background task data
 let backgroundPoints: GPSPoint[] = [];
 
-// Define the background task
+// Defines the background task
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
   if (error) {
     console.error('Background location error:', error);
@@ -95,7 +95,7 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     }
   }, []);
 
-  // Calculate distance between two points using Haversine formula
+  // Calculates distance between two points using Haversine formula
   const calculateDistance = useCallback((point1: GPSPoint, point2: GPSPoint): number => {
     const R = 6371e3; // Earth's radius in meters
     const φ1 = (point1.latitude * Math.PI) / 180;
@@ -111,7 +111,7 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     return R * c; // Distance in meters
   }, []);
 
-  // Process a new location
+  // Processes a new location
   const processLocation = useCallback((location: Location.LocationObject) => {
     const newPoint: GPSPoint = {
       latitude: location.coords.latitude,
@@ -123,7 +123,7 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
       heading: location.coords.heading,
     };
 
-    // Filter out inaccurate points
+    // Filters out inaccurate points
     if (newPoint.accuracy && newPoint.accuracy > 50) {
       console.log('Skipping inaccurate point:', newPoint. accuracy);
       return;
@@ -132,10 +132,10 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     setState(prev => {
       let newDistance = prev.distance;
       
-      // Calculate distance from last point
+      // Calculates distance from last point
       if (lastLocation.current) {
         const segmentDistance = calculateDistance(lastLocation.current, newPoint);
-        // Only add distance if movement is significant (reduces GPS drift noise)
+        // Only adds distance if movement is significant (reduces GPS drift noise)
         if (segmentDistance > 2 && segmentDistance < 100) { // Between 2m and 100m
           newDistance += segmentDistance;
         }
@@ -159,19 +159,19 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     }
   }, [calculateDistance, onLocationUpdate]);
 
-  // Start tracking
+  // Starts tracking
   const startTracking = useCallback(async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return false;
 
     try {
-      // Get initial location
+      // Gets initial location
       const initialLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.BestForNavigation,
       });
       processLocation(initialLocation);
 
-      // Start foreground tracking
+      // Starts foreground tracking
       locationSubscription.current = await Location. watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
@@ -181,7 +181,7 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
         processLocation
       );
 
-      // Start background tracking
+      // Starts background tracking
       await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
         accuracy: Location.Accuracy.BestForNavigation,
         timeInterval: LOCATION_INTERVAL,
@@ -203,22 +203,22 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     }
   }, [requestPermissions, processLocation]);
 
-  // Stop tracking
+  // Stops tracking
   const stopTracking = useCallback(async () => {
     try {
-      // Stop foreground tracking
+      // Stops foreground tracking
       if (locationSubscription.current) {
         locationSubscription.current.remove();
         locationSubscription.current = null;
       }
 
-      // Stop background tracking
+      // Stops background tracking
       const isRegistered = await TaskManager.isTaskRegisteredAsync(LOCATION_TASK_NAME);
       if (isRegistered) {
         await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
       }
 
-      // Merge any background points
+      // Merge's any background points
       if (backgroundPoints. length > 0) {
         setState(prev => ({
           ...prev,
@@ -231,7 +231,7 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     }
   }, []);
 
-  // Reset tracking data
+  // Resets tracking data
   const resetTracking = useCallback(() => {
     lastLocation.current = null;
     backgroundPoints = [];
@@ -245,12 +245,12 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     });
   }, []);
 
-  // Get all collected points (including background)
+  // Gets all collected points (including background)
   const getAllPoints = useCallback((): GPSPoint[] => {
     return [...state.routeCoordinates, ... backgroundPoints];
   }, [state.routeCoordinates]);
 
-  // Handle app state changes
+  // Handles app state changes
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState:  AppStateStatus) => {
       if (
@@ -258,7 +258,7 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
         nextAppState === 'active' &&
         isTracking
       ) {
-        // App came to foreground, merge background points
+        // App comes to foreground, merges background points
         if (backgroundPoints. length > 0) {
           setState(prev => ({
             ... prev,
@@ -275,7 +275,7 @@ export function useLocationTracking({ onLocationUpdate, isTracking }:  UseLocati
     };
   }, [isTracking]);
 
-  // Start/stop tracking based on isTracking prop
+  // Starts/stops tracking based on isTracking prop
   useEffect(() => {
     if (isTracking) {
       startTracking();

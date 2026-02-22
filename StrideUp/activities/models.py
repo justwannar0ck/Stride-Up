@@ -190,7 +190,8 @@ class Activity(models.Model):
         super().save(*args, **kwargs)
     
     def _get_time_of_day(self):
-        """Return time of day string based on started_at"""
+        """Returns time of day string based on started_at"""
+        
         if not self.started_at:
             return "Morning"
         
@@ -205,7 +206,8 @@ class Activity(models.Model):
             return "Night"
     
     def calculate_statistics(self):
-        """Calculate all statistics from GPS points - called after activity completion"""
+        """Calculates all statistics from GPS points - called after activity completion"""
+        
         from django.contrib.gis.geos import LineString, Point
         
         gps_points = self.gps_points.order_by('timestamp')
@@ -213,40 +215,40 @@ class Activity(models.Model):
         if gps_points.count() < 2:
             return
         
-        # Build route from GPS points
+        # Builds route from GPS points
         coords = [(p.longitude, p.latitude) for p in gps_points]
         self.route = LineString(coords, srid=4326)
         
-        # Set start and end points
+        # Sets start and end points
         first_point = gps_points.first()
         last_point = gps_points.last()
         
         self.start_point = Point(first_point.longitude, first_point.latitude, srid=4326)
         self.end_point = Point(last_point.longitude, last_point.latitude, srid=4326)
         
-        # Apply privacy masking if enabled
+        # Applies privacy masking if enabled
         if self.hide_start_end:
             self.apply_privacy_masking()
         
-        # Calculate distance (PostGIS geography gives us meters)
+        # Calculates distance (PostGIS geography gives us meters)
         self.distance = self.route.length
         
-        # Calculate duration
+        # Calculates duration
         if first_point.timestamp and last_point.timestamp:
             self.total_elapsed_time = last_point.timestamp - first_point.timestamp
             
-            # Calculate active duration (excluding pauses)
+            # Calculates active duration (excluding pauses)
             pause_duration = self._calculate_pause_duration()
             self.duration = self.total_elapsed_time - pause_duration
         
-        # Calculate pace and speed
+        # Calculates pace and speed
         if self.distance and self.duration:
             self._calculate_pace_and_speed()
         
-        # Calculate elevation
+        # Calculates elevation
         self._calculate_elevation()
         
-        # Calculate calories
+        # Calculates calories
         self._calculate_calories()
         
         self.save()
@@ -272,7 +274,7 @@ class Activity(models.Model):
     
     def _offset_point(self, point, radius_meters):
         """
-        Offset a point by a random distance and direction within the radius.
+        Offsets a point by a random distance and direction within the radius.
         """
         
         # Random distance between 50-100% of radius for better privacy
@@ -289,7 +291,7 @@ class Activity(models.Model):
         lat1 = math.radians(point.y)
         lon1 = math.radians(point.x)
         
-        # Calculate new position using Haversine formula
+        # Calculates new position using Haversine formula
         lat2 = math.asin(
             math.sin(lat1) * math.cos(distance / R) +
             math.cos(lat1) * math.sin(distance / R) * math.cos(bearing_rad)
@@ -302,14 +304,14 @@ class Activity(models.Model):
         return Point(math.degrees(lon2), math.degrees(lat2), srid=4326)
     
     def _calculate_pause_duration(self):
-        """Calculate total pause duration from activity pauses"""
+        """Calculates total pause duration from activity pauses"""
         total_pause = timedelta()
         for pause in self.pauses.filter(resumed_at__isnull=False):
             total_pause += pause.resumed_at - pause.paused_at
         return total_pause
     
     def _calculate_pace_and_speed(self):
-        """Calculate average pace and speed"""
+        """Calculates average pace and speed"""
         if self.distance and self.duration:
             total_seconds = self.duration.total_seconds()
             distance_km = self.distance / 1000
@@ -319,7 +321,7 @@ class Activity(models.Model):
                 self.average_speed = distance_km / (total_seconds / 3600)
     
     def _calculate_elevation(self):
-        """Calculate elevation gain and loss from GPS points"""
+        """Calculates elevation gain and loss from GPS points"""
         gps_points = self.gps_points.filter(elevation__isnull=False).order_by('timestamp')
         
         if gps_points.count() < 2:
@@ -341,7 +343,7 @@ class Activity(models.Model):
         self.elevation_loss = loss
     
     def _calculate_calories(self):
-        """Estimate calories burned based on activity type, distance, and duration"""
+        """Estimates calories burned based on activity type, distance, and duration"""
         if not self.distance or not self.duration:
             return
         
@@ -359,7 +361,7 @@ class Activity(models.Model):
         self.calories_burned = met * weight_kg * hours
     
     def get_route_for_display(self):
-        """Get route data formatted for frontend display with privacy filtering"""
+        """Gets route data formatted for frontend display with privacy filtering"""
         if not self.route:
             return None
         
@@ -369,27 +371,27 @@ class Activity(models.Model):
         if not coords or len(coords) < 2:
             return None
         
-        # Apply start/end trimming if privacy is enabled
-        # Only trim if we have enough points to still have a valid route after trimming
+        # Applies start/end trimming if privacy is enabled
+        # Only trims if we have enough points to still have a valid route after trimming
         if self.hide_start_end:
             if len(coords) > 10:
-                # Calculate how many points to trim (at least 2, up to 5% from each end)
+                # Calculates how many points to trim (at least 2, up to 5% from each end)
                 trim_count = max(2, len(coords) // 20)
                 coords = coords[trim_count:-trim_count]
             elif len(coords) > 4:
-                # For shorter routes, just trim 1 point from each end
+                # For shorter routes, just trims 1 point from each end
                 coords = coords[1:-1]
             # If 4 or fewer points with privacy enabled, we can't safely show the route
-            # But we should still show SOMETHING, so skip trimming for very short routes
-            # OR return None if strict privacy is required
-            # For now, let's just skip trimming for very short routes
+            # But we should still show SOMETHING, so skips trimming for very short routes
+            # OR returns None if strict privacy is required
+            # For now, it just skips trimming for very short routes
         
-        # Apply user's privacy zone filtering
+        # Applies user's privacy zone filtering
         coords = self._filter_privacy_zones(coords)
         
-        # Make sure we still have a valid route
+        # Makes sure we still have a valid route
         if not coords or len(coords) < 2:
-            # If privacy filtering removed too many points, return None
+            # If privacy filtering removed too many points, returns None
             # This means the route is entirely within privacy zones
             print(f"[PRIVACY] Route hidden: started with {original_count} points, ended with {len(coords) if coords else 0}")
             return None
@@ -401,21 +403,21 @@ class Activity(models.Model):
         
     def _filter_privacy_zones(self, coords):
         """
-        Remove route points that fall within user's privacy zones.
+        Removes route points that fall within user's privacy zones.
         Returns filtered coordinates list.
         """
-        # Import here to avoid circular imports
+        # Imported here to avoid circular imports
         from Users.models import PrivacyZone
         from django.contrib.gis.geos import Point
         
-        # Get user's active privacy zones
+        # Gets user's active privacy zones
         try:
             privacy_zones = PrivacyZone.objects.filter(
                 user=self.user,
                 is_active=True
             )
         except:
-            # If PrivacyZone model doesn't exist yet, return coords unchanged
+            # If PrivacyZone model doesn't exist yet, returns coords unchanged
             return coords
         
         if not privacy_zones.exists():
@@ -428,7 +430,7 @@ class Activity(models.Model):
             in_zone = False
             
             for zone in privacy_zones:
-                # Calculate distance in meters (approximate)
+                # Calculates distance in meters (approximate)
                 # 1 degree latitude ≈ 111,319.9 meters
                 distance = zone.center.distance(point) * 111319.9
                 
@@ -443,12 +445,12 @@ class Activity(models.Model):
     
     @property
     def distance_km(self):
-        """Return distance in kilometers"""
+        """Returns distance in kilometers"""
         return round(self.distance / 1000, 2) if self.distance else 0
     
     @property
     def pace_formatted(self):
-        """Return pace as MM:SS per km"""
+        """Returns pace as MM:SS per km"""
         if not self.average_pace:
             return "--:--"
         
@@ -458,7 +460,7 @@ class Activity(models.Model):
     
     @property
     def duration_formatted(self):
-        """Return duration as HH:MM:SS"""
+        """Returns duration as HH:MM:SS"""
         if not self.duration:
             return "00:00:00"
         
@@ -556,7 +558,7 @@ class ActivityPause(models.Model):
     
 class ActivityLike(models.Model):
     """
-    Model to track likes/kudos on activities.
+    Model to track likes on activities.
     """
     
     activity = models.ForeignKey(

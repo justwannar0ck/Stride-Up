@@ -16,7 +16,7 @@ import {
   ChallengeStatus,
 } from '../services/challengeService';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 const TYPE_CONFIG: Record<string, { icon: string; label: string }> = {
   distance: { icon: 'map-outline', label: 'Distance' },
@@ -52,7 +52,7 @@ function getDaysRemaining(endDate: string) {
   return `${diff} days left`;
 }
 
-// ─── Component ─────────────────────────────────────────────���─────────────────
+// Components
 
 interface Props {
   communityId: number;
@@ -114,7 +114,7 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
         />
       }
     >
-      {/* Create button — leaders only */}
+
       {isAdmin && (
         <TouchableOpacity
           style={s.createButton}
@@ -130,7 +130,6 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
         </TouchableOpacity>
       )}
 
-      {/* Filter tabs */}
       <View style={s.filterRow}>
         {(['active', 'upcoming', 'past'] as const).map((f) => (
           <TouchableOpacity
@@ -147,7 +146,6 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
         ))}
       </View>
 
-      {/* Challenge cards */}
       {filteredChallenges.length > 0 ? (
         filteredChallenges.map((challenge) => {
           const typeConf = TYPE_CONFIG[challenge.challenge_type] || TYPE_CONFIG.distance;
@@ -172,7 +170,7 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
                 })
               }
             >
-              {/* Header row */}
+
               <View style={s.cardHeader}>
                 <View style={s.typeIconContainer}>
                   <Ionicons
@@ -199,7 +197,6 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
                 </View>
               </View>
 
-              {/* Progress bar (collective only) */}
               {challenge.contribution_scope === 'collective' &&
                 challenge.current_status === 'active' && (
                   <View style={s.progressSection}>
@@ -219,7 +216,6 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
                   </View>
                 )}
 
-              {/* Footer */}
               <View style={s.cardFooter}>
                 <View style={s.footerItem}>
                   <Ionicons name="people-outline" size={14} color="#8a8d6a" />
@@ -245,7 +241,6 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
                 )}
               </View>
 
-              {/* Join indicator */}
               {challenge.is_joined && (
                 <View style={s.joinedBadge}>
                   <Ionicons
@@ -280,7 +275,7 @@ export default function ChallengesList({ communityId, isAdmin }: Props) {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// Styles
 
 const s = StyleSheet.create({
   container: { flex: 1 },

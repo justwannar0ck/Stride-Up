@@ -36,7 +36,6 @@ export default function RouteBuilderScreen() {
   const [searchResults, setSearchResults] = useState<GeocodedPlace[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Load existing waypoints if editing
   useEffect(() => {
     if (existingWaypoints) {
       try {
@@ -60,7 +59,7 @@ export default function RouteBuilderScreen() {
     }
   }, [existingWaypoints]);
 
-  // ── Helpers ──
+  // Helpers
   const getWaypointType = (index: number, total: number): RouteWaypoint['waypoint_type'] => {
     if (index === 0) return 'start';
     if (index === total - 1 && total > 1) return 'end';
@@ -151,10 +150,9 @@ export default function RouteBuilderScreen() {
     setWaypoints(updated);
   };
 
-  // ── Save and go back ──
-  // Store waypoints in the shared module-level store, then simply go back.
+  // Saving
+  // Stores waypoints in the shared module-level store, then simply goes back.
   // challenge-create picks them up via useFocusEffect.
-  // This avoids router.replace() which was creating duplicate pages.
   const handleSave = () => {
     if (waypoints.length < 2) {
       Alert.alert('Not enough points', 'You need at least a Start and an End point.');
@@ -172,7 +170,7 @@ export default function RouteBuilderScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#d9e3d0" />
@@ -183,7 +181,6 @@ export default function RouteBuilderScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Mode selector */}
       <View style={styles.modeRow}>
         <TouchableOpacity
           style={[styles.modeBtn, addMode === 'tap' && styles.modeBtnActive]}
@@ -204,7 +201,6 @@ export default function RouteBuilderScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search bar */}
       {addMode === 'search' && (
         <View style={styles.searchContainer}>
           <TextInput
@@ -226,7 +222,6 @@ export default function RouteBuilderScreen() {
         </View>
       )}
 
-      {/* Search results */}
       {searchResults.length > 0 && (
         <View style={styles.searchResults}>
           <FlatList
@@ -247,7 +242,6 @@ export default function RouteBuilderScreen() {
         </View>
       )}
 
-      {/* Map */}
       <View style={styles.mapContainer}>
         <MapView
           ref={mapRef}
@@ -296,7 +290,6 @@ export default function RouteBuilderScreen() {
         </MapView>
       </View>
 
-      {/* Waypoint list */}
       <View style={styles.waypointList}>
         <Text style={styles.waypointListTitle}>
           Waypoints ({waypoints.length})

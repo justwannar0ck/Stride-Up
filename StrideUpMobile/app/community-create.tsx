@@ -50,7 +50,7 @@ export default function CommunityCreateScreen() {
           text: 'Open',
           onPress: () => {
             router.back();
-            // Only navigate to detail if we got an id back
+            // Only navigates to details if we get an id back
             if (community.id) {
               setTimeout(() => {
                 router.push({
@@ -72,7 +72,6 @@ export default function CommunityCreateScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -85,7 +84,6 @@ export default function CommunityCreateScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Name */}
         <Text style={styles.label}>Community Name *</Text>
         <TextInput
           style={styles.input}
@@ -96,7 +94,6 @@ export default function CommunityCreateScreen() {
           maxLength={100}
         />
 
-        {/* Description */}
         <Text style={styles.label}>Description</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
@@ -110,7 +107,6 @@ export default function CommunityCreateScreen() {
           textAlignVertical="top"
         />
 
-        {/* Visibility */}
         <Text style={styles.label}>Visibility</Text>
         <View style={styles.optionsRow}>
           <TouchableOpacity
@@ -138,7 +134,6 @@ export default function CommunityCreateScreen() {
             : 'Users must request to join. Admins approve.'}
         </Text>
 
-        {/* Activity Types */}
         <Text style={styles.label}>Activity Focus (optional)</Text>
         <View style={styles.optionsRow}>
           {ACTIVITY_OPTIONS.map((type) => {
@@ -157,7 +152,6 @@ export default function CommunityCreateScreen() {
           })}
         </View>
 
-        {/* Submit */}
         <TouchableOpacity
           style={[styles.createBtn, isSubmitting && { opacity: 0.6 }]}
           onPress={handleCreate}

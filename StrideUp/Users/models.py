@@ -18,7 +18,7 @@ class User(AbstractUser):
     # Privacy settings
     is_private = models.BooleanField(default=False)
     
-    # User's home location (optional - for nearby features and privacy zones)
+    # User's home location
     home_location = models.PointField(
         geography=True,
         srid=4326,
@@ -39,37 +39,37 @@ class User(AbstractUser):
         return self.username
     
     def get_full_name(self):
-        """Return the user's full name."""
+        """Returns the user's full name."""
         full_name = f"{self.first_name} {self.last_name}".strip()
         return full_name if full_name else self.username
     
     @property
     def followers_count(self):
-        """Return the number of followers."""
+        """Returns the number of followers."""
         return self.followers.count()
     
     @property
     def following_count(self):
-        """Return the number of users this user is following."""
+        """Returns the number of users this user is following."""
         return self.following.count()
     
     def is_following(self, user):
-        """Check if this user is following the given user."""
+        """Checks if this user is following the given user."""
         return self.following.filter(following=user).exists()
     
     def is_followed_by(self, user):
-        """Check if this user is followed by the given user."""
+        """Checks if this user is followed by the given user."""
         return self.followers.filter(follower=user).exists()
     
     def has_pending_follow_request_from(self, user):
-        """Check if there's a pending follow request from the given user."""
+        """Checks if there's a pending follow request from the given user."""
         return self.received_follow_requests.filter(
             from_user=user, 
             status=FollowRequest.Status.PENDING
         ).exists()
     
     def has_pending_follow_request_to(self, user):
-        """Check if this user has sent a pending follow request to the given user."""
+        """Checks if this user has sent a pending follow request to the given user."""
         return self.sent_follow_requests.filter(
             to_user=user,
             status=FollowRequest.Status.PENDING
@@ -167,7 +167,7 @@ class FollowRequest(models.Model):
         super().save(*args, **kwargs)
     
     def accept(self):
-        """Accept the follow request and create a Follow relationship."""
+        """Accepts the follow request and creates a Follow relationship."""
         if self.status != self.Status.PENDING:
             return False
         
@@ -182,7 +182,7 @@ class FollowRequest(models.Model):
         return True
     
     def reject(self):
-        """Reject the follow request."""
+        """Rejects the follow request."""
         if self.status != self.Status.PENDING:
             return False
         

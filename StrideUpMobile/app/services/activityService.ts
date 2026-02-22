@@ -66,7 +66,7 @@ export interface UserStatistics {
 }
 
 export const activityService = {
-  // Start a new activity
+  // Starts a new activity
   startActivity: async (data: {
     activity_type: string;
     visibility?:  string;
@@ -76,7 +76,7 @@ export const activityService = {
     return response.data;
   },
 
-  // Get current active activity
+  // Gets current active activity
   getCurrentActivity: async () => {
     try {
       const response = await api.get('/api/v1/activities/current/');
@@ -89,7 +89,7 @@ export const activityService = {
     }
   },
 
-  // Upload GPS points
+  // Uploads GPS points
   uploadGPSPoints: async (activityId: number, points: GPSPoint[]) => {
     const response = await api.post('/api/v1/activities/upload_gps/', {
       activity_id: activityId,
@@ -98,19 +98,19 @@ export const activityService = {
     return response. data;
   },
 
-  // Pause activity
+  // Pauses activity
   pauseActivity:  async (activityId: number) => {
     const response = await api.post(`/api/v1/activities/${activityId}/pause/`);
     return response.data;
   },
 
-  // Resume activity
+  // Resumes activity
   resumeActivity: async (activityId: number) => {
     const response = await api.post(`/api/v1/activities/${activityId}/resume/`);
     return response.data;
   },
 
-  // Complete activity
+  // Completes activity
   completeActivity: async (activityId: number, data?:  {
     title?: string;
     description?: string;
@@ -121,37 +121,37 @@ export const activityService = {
     return response.data;
   },
 
-  // Discard activity
+  // Discards activity
   discardActivity: async (activityId: number) => {
     const response = await api.post(`/api/v1/activities/${activityId}/discard/`);
     return response.data;
   },
 
-  // Get activity details
+  // Gets activity details
   getActivity: async (activityId: number): Promise<Activity> => {
     const response = await api.get(`/api/v1/activities/${activityId}/`);
     return response.data;
   },
 
-  // List user's activities
+  // Lists user's activities
   listActivities: async (params?:  { page?: number; limit?: number }) => {
     const response = await api.get('/api/v1/activities/', { params });
     return response.data;
   },
 
-  // Get user statistics
+  // Gets user statistics
   getStatistics: async (): Promise<UserStatistics> => {
     const response = await api.get('/api/v1/activities/statistics/');
     return response.data;
   },
 
-  // Update activity
+  // Updates activity
   updateActivity: async (activityId: number, data:  Partial<Activity>) => {
     const response = await api.patch(`/api/v1/activities/${activityId}/`, data);
     return response.data;
   },
 
-  // Delete activity
+  // Deletes activity
   deleteActivity: async (activityId: number) => {
     const response = await api.delete(`/api/v1/activities/${activityId}/`);
     return response.data;

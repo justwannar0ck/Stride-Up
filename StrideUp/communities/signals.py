@@ -6,13 +6,13 @@ from django.utils import timezone
 @receiver(pre_save, sender='activities.Activity')
 def check_challenge_contributions(sender, instance, **kwargs):
     """
-    When an activity transitions to 'completed', find all active challenges
-    that the user has joined and create contributions automatically.
+    When an activity transitions to 'completed', finds all active challenges
+    that the user has joined and creates contributions automatically.
     
-    Only activities completed AFTER the user joined the challenge count.
+    Only activities completed AFTER the user joined the challenge counts.
     Past activities do NOT count for late joiners.
     """
-    # Only trigger when status changes to 'completed'
+    # Only triggers when status changes to 'completed'
     if not instance.pk:
         return  # New instance, not completed yet
 
@@ -30,7 +30,7 @@ def check_challenge_contributions(sender, instance, **kwargs):
 
     def _create_contributions(sender, instance, **kwargs):
         """Create contributions after the activity is fully saved."""
-        # Disconnect to avoid recursion
+        # Disconnects to avoid recursion
         post_save.disconnect(_create_contributions, sender=sender)
         _process_contributions(instance)
 
@@ -39,13 +39,13 @@ def check_challenge_contributions(sender, instance, **kwargs):
 
 def _process_contributions(activity):
     """
-    Find all qualifying challenges and create contribution records.
+    Finds all qualifying challenges and create contribution records.
     """
     from .models import Challenge, ChallengeParticipant, ChallengeContribution
 
     user = activity.user
 
-    # Find all challenges where:
+    # Finds all challenges where:
     # 1. User is a participant
     # 2. Challenge is active (within date range)
     # 3. Activity type matches the challenge's allowed types
@@ -61,23 +61,23 @@ def _process_contributions(activity):
     for participant in participants:
         challenge = participant.challenge
 
-        # Check if the activity type qualifies
+        # Checks if the activity type qualifies
         if activity.activity_type not in challenge.activity_types:
             continue
 
-        # Check if this activity already contributed to this challenge
+        # Checks if this activity already contributed to this challenge
         if ChallengeContribution.objects.filter(
             challenge=challenge,
             activity=activity,
         ).exists():
             continue
 
-        # Calculate the contribution value based on challenge type
+        # Calculates the contribution value based on challenge type
         value = _get_contribution_value(challenge, activity)
         if value is None or value <= 0:
             continue
 
-        # Create the contribution
+        # Creates the contribution
         ChallengeContribution.objects.create(
             challenge=challenge,
             participant=participant,
@@ -85,13 +85,13 @@ def _process_contributions(activity):
             value=value,
         )
 
-        # Update participant's running total
+        # Updates participant's running total
         participant.update_total()
 
 
 def _get_contribution_value(challenge, activity):
     """
-    Extract the contribution value from the activity based on challenge type.
+    Extracts the contribution value from the activity based on challenge type.
     
     Activity model stores:
     - distance: meters (float)
@@ -99,11 +99,11 @@ def _get_contribution_value(challenge, activity):
     - elevation_gain: meters (float)
     """
     if challenge.challenge_type == 'distance':
-        # Convert meters to km
+        # Converts meters to km
         return round((activity.distance or 0) / 1000, 2)
 
     elif challenge.challenge_type == 'duration':
-        # Convert timedelta to hours
+        # Converts timedelta to hours
         if activity.duration:
             return round(activity.duration.total_seconds() / 3600, 2)
         return 0

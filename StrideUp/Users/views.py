@@ -29,16 +29,16 @@ class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def me(self, request):
-        """Get the current user's profile."""
+        """Gets the current user's profile."""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
     
     @action(detail=True, methods=['get'])
     def followers(self, request, username=None):
-        """Get the list of followers for a user."""
+        """Gets the list of followers for a user."""
         user = self.get_object()
         
-        # Check privacy - only show followers if public, following, or own profile
+        # Checks privacy - only show followers if public, following, or own profile
         if user.is_private and user != request.user:
             if not request.user.is_following(user):
                 return Response(
@@ -56,10 +56,10 @@ class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=True, methods=['get'])
     def following(self, request, username=None):
-        """Get the list of users this user is following."""
+        """Gets the list of users this user is following."""
         user = self.get_object()
         
-        # Check privacy
+        # Checks privacy
         if user.is_private and user != request.user:
             if not request.user.is_following(user):
                 return Response(
@@ -77,7 +77,7 @@ class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get', 'patch'])
     def me(self, request):
-        """Get or update the current user's profile."""
+        """Gets or updates the current user's profile."""
         if request.method == 'PATCH':
             serializer = UserProfileUpdateSerializer(
                 request.user, 
@@ -86,7 +86,7 @@ class UserProfileViewSet(viewsets.ReadOnlyModelViewSet):
             )
             if serializer.is_valid():
                 serializer.save()
-                # Return full profile after update
+                # Returns full profile after update
                 return Response(UserProfileSerializer(request.user, context={'request': request}).data)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
@@ -103,7 +103,7 @@ class FollowViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['post'], url_path='(?P<username>[^/.]+)')
     def follow(self, request, username=None):
         """
-        Follow a user or send a follow request if the account is private.
+        Follows a user or sends a follow request if the account is private.
         """
         target_user = get_object_or_404(User, username=username)
         
@@ -114,21 +114,21 @@ class FollowViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if already following
+        # Checks if already following
         if request.user.is_following(target_user):
             return Response(
                 {'error': 'You are already following this user'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check for pending request
+        # Checks for pending request
         if request.user.has_pending_follow_request_to(target_user):
             return Response(
                 {'error': 'You already have a pending follow request'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # If target account is private, create a follow request
+        # If target account is private, creates a follow request
         if target_user.is_private:
             follow_request, created = FollowRequest.objects.get_or_create(
                 from_user=request.user,
@@ -137,7 +137,7 @@ class FollowViewSet(viewsets.ViewSet):
             )
             
             if not created and follow_request.status == FollowRequest.Status.REJECTED:
-                # Allow re-requesting after rejection
+                # Allows re-requesting after rejection
                 follow_request.status = FollowRequest.Status.PENDING
                 follow_request.save()
             
@@ -146,7 +146,7 @@ class FollowViewSet(viewsets.ViewSet):
                 'message': 'Follow request sent'
             }, status=status.HTTP_201_CREATED)
         
-        # Public account - follow directly
+        # Public account - follows directly
         Follow.objects.create(follower=request.user, following=target_user)
         
         return Response({
@@ -156,10 +156,10 @@ class FollowViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['delete'], url_path='(?P<username>[^/.]+)/unfollow')
     def unfollow(self, request, username=None):
-        """Unfollow a user."""
+        """Unfollowing a user."""
         target_user = get_object_or_404(User, username=username)
         
-        # Delete follow relationship
+        # Deletes follow relationship
         deleted, _ = Follow.objects.filter(
             follower=request.user,
             following=target_user
@@ -171,7 +171,7 @@ class FollowViewSet(viewsets.ViewSet):
                 'message': f'You have unfollowed {target_user.username}'
             })
         
-        # Maybe there's a pending request to cancel
+        # Cancelling pending request
         deleted, _ = FollowRequest.objects.filter(
             from_user=request.user,
             to_user=target_user,
@@ -191,7 +191,7 @@ class FollowViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['delete'], url_path='(?P<username>[^/.]+)/remove')
     def remove_follower(self, request, username=None):
-        """Remove a user from your followers."""
+        """Removes a user from the followers."""
         follower_user = get_object_or_404(User, username=username)
         
         deleted, _ = Follow.objects.filter(
@@ -217,7 +217,7 @@ class FollowRequestViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def list(self, request):
-        """List all pending follow requests received by the current user."""
+        """Lists all pending follow requests received by the current user."""
         pending_requests = FollowRequest.objects.filter(
             to_user=request.user,
             status=FollowRequest.Status.PENDING
@@ -231,7 +231,7 @@ class FollowRequestViewSet(viewsets.ViewSet):
     
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
-        """Accept a follow request."""
+        """Accepts a follow request."""
         follow_request = get_object_or_404(
             FollowRequest,
             pk=pk,
@@ -251,7 +251,7 @@ class FollowRequestViewSet(viewsets.ViewSet):
     
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
-        """Reject a follow request."""
+        """Rejects a follow request."""
         follow_request = get_object_or_404(
             FollowRequest,
             pk=pk,
@@ -271,7 +271,7 @@ class FollowRequestViewSet(viewsets.ViewSet):
     
     @action(detail=False, methods=['post'])
     def accept_all(self, request):
-        """Accept all pending follow requests."""
+        """Accepts all pending follow requests."""
         pending_requests = FollowRequest.objects.filter(
             to_user=request.user,
             status=FollowRequest.Status.PENDING
@@ -289,7 +289,7 @@ class FollowRequestViewSet(viewsets.ViewSet):
 
 class UserSearchView(generics.ListAPIView):
     """
-    Search for users by username or name.
+    Searching for users by username or name.
     """
     serializer_class = UserMinimalSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -317,7 +317,7 @@ class PrivacyZoneViewSet(viewsets.ModelViewSet):
         return PrivacyZone.objects.filter(user=self.request.user)
     
     def perform_create(self, serializer):
-        # Check zone limit
+        # Checks zone limit
         existing_count = self.get_queryset().count()
         if existing_count >= 10:
             from rest_framework.exceptions import ValidationError

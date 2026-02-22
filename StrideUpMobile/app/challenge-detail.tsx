@@ -21,7 +21,7 @@ import {
   RouteWaypoint,
 } from './services/challengeService';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 const TYPE_LABELS: Record<string, string> = {
   distance: 'Distance',
@@ -89,7 +89,7 @@ function getDaysRemaining(endDate: string) {
   return `${diff} days left`;
 }
 
-/** Compute a region that fits all waypoints with padding */
+// Computes a region that fits all waypoints with padding
 function getRegionForWaypoints(waypoints: RouteWaypoint[]) {
   if (waypoints.length === 0) {
     return {
@@ -114,7 +114,7 @@ function getRegionForWaypoints(waypoints: RouteWaypoint[]) {
 
   const midLat = (minLat + maxLat) / 2;
   const midLng = (minLng + maxLng) / 2;
-  const deltaLat = (maxLat - minLat) * 1.4 || 0.01; // 40% padding
+  const deltaLat = (maxLat - minLat) * 1.4 || 0.01;
   const deltaLng = (maxLng - minLng) * 1.4 || 0.01;
 
   return {
@@ -125,7 +125,7 @@ function getRegionForWaypoints(waypoints: RouteWaypoint[]) {
   };
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// Components
 
 export default function ChallengeDetailScreen() {
   const router = useRouter();
@@ -208,7 +208,7 @@ export default function ChallengeDetailScreen() {
     ]);
   };
 
-  // ─── Render ──────────────────────────────────────────────────────────────
+  // Render
 
   if (loading) {
     return (
@@ -249,7 +249,7 @@ export default function ChallengeDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -280,7 +280,7 @@ export default function ChallengeDetailScreen() {
           />
         }
       >
-        {/* ── Hero section ── */}
+
         <View style={styles.heroSection}>
           <View style={styles.heroIconRow}>
             <View style={styles.heroIcon}>
@@ -304,7 +304,6 @@ export default function ChallengeDetailScreen() {
             <Text style={styles.heroDescription}>{challenge.description}</Text>
           ) : null}
 
-          {/* Status + dates */}
           <View style={styles.dateRow}>
             <View style={styles.dateItem}>
               <Ionicons
@@ -324,7 +323,6 @@ export default function ChallengeDetailScreen() {
             )}
           </View>
 
-          {/* Activity types */}
           <View style={styles.activityTypesRow}>
             {challenge.activity_types.map((t) => (
               <View key={t} style={styles.activityTypeChip}>
@@ -341,7 +339,6 @@ export default function ChallengeDetailScreen() {
           </View>
         </View>
 
-        {/* ── Route Map section (only for route challenges) ── */}
         {hasRoute && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -354,7 +351,6 @@ export default function ChallengeDetailScreen() {
               </View>
             </View>
 
-            {/* Map */}
             <View style={styles.routeMapContainer}>
               <MapView
                 ref={mapRef}
@@ -365,7 +361,7 @@ export default function ChallengeDetailScreen() {
                 rotateEnabled={false}
                 pitchEnabled={false}
               >
-                {/* Route polyline */}
+
                 {polyCoords.length > 1 && (
                   <Polyline
                     coordinates={polyCoords}
@@ -375,7 +371,6 @@ export default function ChallengeDetailScreen() {
                   />
                 )}
 
-                {/* Waypoint markers */}
                 {waypoints.map((wp, index) => (
                   <Marker
                     key={wp.id || index}
@@ -408,12 +403,11 @@ export default function ChallengeDetailScreen() {
                 ))}
               </MapView>
 
-              {/* Tap to expand overlay */}
               <TouchableOpacity
                 style={styles.mapOverlay}
                 activeOpacity={0.7}
                 onPress={() => {
-                  // Fit map to all markers
+                  // Fits map to all markers
                   if (mapRef.current && waypoints.length > 0) {
                     mapRef.current.animateToRegion(
                       getRegionForWaypoints(waypoints),
@@ -426,7 +420,6 @@ export default function ChallengeDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Waypoint list */}
             <View style={styles.waypointList}>
               {waypoints.map((wp, index) => {
                 const isStart = wp.waypoint_type === 'start';
@@ -435,7 +428,7 @@ export default function ChallengeDetailScreen() {
 
                 return (
                   <View key={wp.id || index} style={styles.waypointRow}>
-                    {/* Connector line + dot */}
+
                     <View style={styles.waypointTimeline}>
                       {index > 0 && (
                         <View style={styles.timelineLineTop} />
@@ -457,7 +450,6 @@ export default function ChallengeDetailScreen() {
                       )}
                     </View>
 
-                    {/* Waypoint info */}
                     <View style={styles.waypointInfo}>
                       <View style={styles.waypointNameRow}>
                         <Text style={styles.waypointName} numberOfLines={1}>
@@ -491,7 +483,6 @@ export default function ChallengeDetailScreen() {
           </View>
         )}
 
-        {/* ── Progress section ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="analytics-outline" size={18} color="#d9e3d0" />
@@ -522,7 +513,6 @@ export default function ChallengeDetailScreen() {
             </Text>
           </View>
 
-          {/* Quick stats row */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
@@ -549,7 +539,6 @@ export default function ChallengeDetailScreen() {
           </View>
         </View>
 
-        {/* ── Leaderboard ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="podium-outline" size={18} color="#f1c40f" />
@@ -603,7 +592,6 @@ export default function ChallengeDetailScreen() {
           )}
         </View>
 
-        {/* ── Recent Contributions ── */}
         {challenge.recent_contributions.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -644,7 +632,6 @@ export default function ChallengeDetailScreen() {
           </View>
         )}
 
-        {/* ── Join / Leave button ── */}
         {(isActive || isUpcoming) && (
           <View style={styles.actionSection}>
             {!challenge.is_joined ? (
@@ -682,7 +669,6 @@ export default function ChallengeDetailScreen() {
           </View>
         )}
 
-        {/* ── Completed banner ── */}
         {challenge.my_progress?.is_completed && (
           <View style={styles.completedBanner}>
             <Ionicons name="trophy" size={24} color="#f1c40f" />
@@ -698,7 +684,7 @@ export default function ChallengeDetailScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// Styles
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#5c5f3d' },
@@ -735,7 +721,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
 
-  // Hero
+  // Hero Section
   heroSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 16,
@@ -813,7 +799,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  // ── Route Map styles ──
+  // Route Map styles
   routeBadge: {
     marginLeft: 'auto',
     backgroundColor: 'rgba(46, 204, 113, 0.15)',

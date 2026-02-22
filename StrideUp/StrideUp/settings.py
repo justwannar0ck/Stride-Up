@@ -6,13 +6,10 @@ from pathlib import Path
 from datetime import timedelta
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# =============================================================================
-# GDAL/GEOS Configuration for Windows - ADD THIS AT THE TOP
-# =============================================================================
-if os.name == 'nt':  # Windows
+# GDAL/GEOS Configuration for Windows
+if os.name == 'nt':
     OSGEO4W = r'C:\OSGeo4W'
     if os.path.isdir(OSGEO4W):
         os.environ['OSGEO4W_ROOT'] = OSGEO4W
@@ -20,17 +17,17 @@ if os.name == 'nt':  # Windows
         os.environ['PROJ_LIB'] = os.path.join(OSGEO4W, 'share', 'proj')
         os.environ['PATH'] = os.path.join(OSGEO4W, 'bin') + ';' + os.environ['PATH']
         
-        # Find and set GDAL library path
+        # Setting the GDAL library path
         gdal_bin = os.path.join(OSGEO4W, 'bin')
         if os.path.isdir(gdal_bin):
-            # Find the GDAL DLL
+            # The GDAL DLL
             for filename in os.listdir(gdal_bin):
                 if filename.startswith('gdal') and filename.endswith('.dll'):
                     if filename[4:7].isdigit():  # e.g., gdal309.dll
                         GDAL_LIBRARY_PATH = os.path.join(gdal_bin, filename)
                         break
             
-            # Find the GEOS DLL
+            # The GEOS DLL
             for filename in os.listdir(gdal_bin):
                 if filename.startswith('geos_c') and filename.endswith('.dll'):
                     GEOS_LIBRARY_PATH = os.path.join(gdal_bin, filename)
@@ -43,7 +40,7 @@ SECRET_KEY = "django-insecure-7m&=mh%+=$2ey4$bojvqh36j8k*gm$js0p_@1x$!5ix36x23^p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.1.64', '*']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.90.131.204', '*']
 
 
 # Application definition
@@ -97,9 +94,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "StrideUp.wsgi.application"
 
 
-# =============================================================================
 # DATABASE CONFIGURATION - PostgreSQL with PostGIS
-# =============================================================================
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",

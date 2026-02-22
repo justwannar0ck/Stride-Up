@@ -43,7 +43,7 @@ export default function CommunitySettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Which member's role picker is open
+  // Shows which member's role picker is open
   const [rolePickerFor, setRolePickerFor] = useState<number | null>(null);
 
   const isOwner = community?.my_role === 'owner';
@@ -62,7 +62,7 @@ export default function CommunitySettingsScreen() {
       setMembers(membersData);
       setPendingRequests(pendingData);
 
-      // Populate edit form
+      // Populates edit form
       setEditName(communityData.name);
       setEditDescription(communityData.description || '');
       setEditVisibility(communityData.visibility);
@@ -79,7 +79,7 @@ export default function CommunitySettingsScreen() {
     fetchData();
   }, [fetchData]);
 
-  // ── Edit Info ──────────────────────────────────────────
+  // Edit Info
 
   const handleSaveInfo = async () => {
     if (!community || !editName.trim()) return;
@@ -100,7 +100,7 @@ export default function CommunitySettingsScreen() {
     }
   };
 
-  // ── Pending Requests ───────────────────────────────────
+  // Pending Requests
 
   const handleApprove = async (membership: CommunityMember) => {
     if (!community) return;
@@ -136,12 +136,12 @@ export default function CommunitySettingsScreen() {
     );
   };
 
-  // ── Role Management ────────────────────────────────────
+  // Role Management
 
   const handleRoleChange = async (membership: CommunityMember, newRole: CommunityRole) => {
     if (!community) return;
 
-    // Prevent changing own role
+    // Prevents changing own role
     if (membership.user.id === community.created_by?.id && newRole !== 'owner') {
       Alert.alert('Error', 'Cannot change the owner\'s role.');
       setRolePickerFor(null);
@@ -158,7 +158,7 @@ export default function CommunitySettingsScreen() {
     }
   };
 
-  // ── Delete Community ───────────────────────────────────
+  // Delete Community
 
   const handleDelete = () => {
     if (!community) return;
@@ -177,7 +177,7 @@ export default function CommunitySettingsScreen() {
                 {
                   text: 'OK',
                   onPress: () => {
-                    // Go back twice: settings → detail → community list
+                    // Goes back twice: settings → detail → community list
                     router.back();
                     setTimeout(() => router.back(), 300);
                   },
@@ -195,7 +195,7 @@ export default function CommunitySettingsScreen() {
     );
   };
 
-  // ── Render ─────────────────────────────────────────────
+  // Render
 
   if (loading) {
     return (
@@ -215,7 +215,7 @@ export default function CommunitySettingsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -228,7 +228,7 @@ export default function CommunitySettingsScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* ─── Section 1: Edit Info ─── */}
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="create-outline" size={18} color="#d9e3d0" />
@@ -310,7 +310,6 @@ export default function CommunitySettingsScreen() {
           )}
         </View>
 
-        {/* ─── Section 2: Pending Requests ─── */}
         {pendingRequests.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -348,7 +347,6 @@ export default function CommunitySettingsScreen() {
           </View>
         )}
 
-        {/* ─── Section 3: Members Management ─── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="people-outline" size={18} color="#d9e3d0" />
@@ -373,7 +371,6 @@ export default function CommunitySettingsScreen() {
                   <Text style={styles.memberUsername}>@{membership.user.username}</Text>
                 </View>
 
-                {/* Role badge — tappable for owner to change roles */}
                 {isCurrentUserOwner && !isSelf ? (
                   <TouchableOpacity
                     style={[
@@ -430,7 +427,6 @@ export default function CommunitySettingsScreen() {
                   </View>
                 )}
 
-                {/* Role Picker Dropdown */}
                 {rolePickerFor === membership.id && (
                   <View style={styles.roleDropdown}>
                     {ROLE_OPTIONS.filter((r) => r.value !== 'owner').map((roleOpt) => (
@@ -458,7 +454,6 @@ export default function CommunitySettingsScreen() {
           })}
         </View>
 
-        {/* ─── Section 4: Danger Zone ─── */}
         {isOwner && (
           <View style={styles.dangerSection}>
             <View style={styles.sectionHeader}>

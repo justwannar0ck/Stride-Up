@@ -18,6 +18,6 @@ export function setPendingWaypoints(waypoints: WaypointData[]) {
 
 export function consumePendingWaypoints(): WaypointData[] | null {
   const data = _pendingWaypoints;
-  _pendingWaypoints = null; // consume once
+  _pendingWaypoints = null; // consumes once
   return data;
 }

@@ -5,9 +5,7 @@ interface GPSPoint {
   longitude: number;
 }
 
-/**
- * Haversine distance in meters between two GPS points
- */
+// Haversine distance in meters between two GPS points
 function haversineMeters(a: GPSPoint, b: GPSPoint): number {
   const R = 6371e3;
   const toRad = (deg: number) => (deg * Math.PI) / 180;

@@ -140,7 +140,7 @@ export default function CommunityDetailScreen() {
       </View>
 
       <ScrollView style={styles.contentScroll}>
-        {/* Hero Section */}
+
         <View style={styles.heroCard}>
           <View style={styles.heroIcon}>
             <Ionicons
@@ -178,7 +178,6 @@ export default function CommunityDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Tabs */}
         <View style={styles.sectionTabs}>
           {(['about', 'members', 'challenges'] as const).map((section) => (
             <TouchableOpacity
@@ -198,7 +197,6 @@ export default function CommunityDetailScreen() {
           ))}
         </View>
 
-        {/* About Section */}
         {activeSection === 'about' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Description</Text>
@@ -256,7 +254,6 @@ export default function CommunityDetailScreen() {
           </View>
         )}
 
-        {/* Members Section */}
         {activeSection === 'members' && (
           <View style={styles.section}>
             {members.map((membership) => (
@@ -280,7 +277,6 @@ export default function CommunityDetailScreen() {
           </View>
         )}
 
-        {/* Challenges Section */}
         {activeSection === 'challenges' && (
           <ChallengesList
             communityId={parseInt(communityId!)}

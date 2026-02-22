@@ -2,16 +2,14 @@ from django.contrib.gis.db import models
 from django.conf import settings
 from django.utils import timezone
 
-
 class Community(models.Model):
     """
     A community/club that users can create or join.
-    Leaders can later create challenges within the community.
     """
     
     class Visibility(models.TextChoices):
         PUBLIC = 'public', 'Public'           # Anyone can find and join
-        PRIVATE = 'private', 'Private'        # Invite only / request to join
+        PRIVATE = 'private', 'Private'        # Invite only / requests to join
     
     # Basic info
     name = models.CharField(max_length=100)
@@ -129,7 +127,7 @@ class CommunityMembership(models.Model):
     def can_moderate(self):
         return self.role in [self.Role.OWNER, self.Role.ADMIN, self.Role.MODERATOR]
 
-# ─── Challenge Models ─────────────────────────────────────────────────────────
+# Challenge Models
 
 class Challenge(models.Model):
     """
@@ -220,8 +218,9 @@ class Challenge(models.Model):
 
     @property
     def current_status(self):
-        """Compute the real-time status based on dates."""
+        """Computes the real-time status based on dates."""
         from django.utils import timezone
+        
         now = timezone.now()
         if self.status == self.Status.CANCELLED:
             return self.Status.CANCELLED
@@ -232,7 +231,7 @@ class Challenge(models.Model):
         return self.Status.ACTIVE
 
     def sync_status(self):
-        """Update status field to match current_status. Call via cron or on access."""
+        """Updates status field to match current_status."""
         computed = self.current_status
         if self.status != computed and self.status != self.Status.CANCELLED:
             self.status = computed
@@ -260,7 +259,7 @@ class Challenge(models.Model):
 
 class ChallengeParticipant(models.Model):
     """
-    Tracks which users have joined a challenge.
+    Tracks which user have joined a challenge.
     """
     challenge = models.ForeignKey(
         Challenge,
@@ -290,7 +289,7 @@ class ChallengeParticipant(models.Model):
         return f"{self.user.username} in {self.challenge.title}"
 
     def update_total(self):
-        """Recalculate total_contributed from contributions."""
+        """Recalculates total_contributed from contributions."""
         total = self.contributions.aggregate(
             total=models.Sum('value')
         )['total'] or 0
@@ -327,7 +326,7 @@ class ChallengeContribution(models.Model):
     contributed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Prevent the same activity counting twice for the same challenge
+        # Prevents the same activity counting twice for the same challenge
         unique_together = ('challenge', 'activity')
         ordering = ['-contributed_at']
 
@@ -409,7 +408,7 @@ class ChallengeRouteWaypoint(models.Model):
     latitude = models.FloatField()
     longitude = models.FloatField()
     
-    # Optional: human-readable name the admin typed/selected
+    # Human-readable name the admin typed/selected
     name = models.CharField(
         max_length=200,
         blank=True,

@@ -11,8 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { communityService, Community } from '../services/communityService';
 
 export default function CommunityScreen() {
@@ -31,7 +30,6 @@ export default function CommunityScreen() {
         communityService.listCommunities(),
       ]);
       setMyCommunities(mine);
-      // Show communities user hasn't joined in discover
       const myIds = new Set(mine.map((c) => c.id));
       setDiscoverCommunities(all.filter((c) => !myIds.has(c.id)));
     } catch (error) {
@@ -66,7 +64,7 @@ export default function CommunityScreen() {
     try {
       const result = await communityService.joinCommunity(community.id);
       Alert.alert('Success', result.detail);
-      loadData(); // Refresh lists
+      loadData(); // Refresh's list
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to join');
     }
@@ -89,7 +87,7 @@ export default function CommunityScreen() {
       }
       activeOpacity={0.7}
     >
-      {/* Icon */}
+
       <View style={styles.communityIcon}>
         <Ionicons
           name={
@@ -102,7 +100,6 @@ export default function CommunityScreen() {
         />
       </View>
 
-      {/* Info */}
       <View style={styles.communityInfo}>
         <Text style={styles.communityName} numberOfLines={1}>
           {community.name}
@@ -119,7 +116,6 @@ export default function CommunityScreen() {
         ) : null}
       </View>
 
-      {/* Action */}
       {showJoin && !community.is_member ? (
         <TouchableOpacity
           style={styles.joinButton}
@@ -159,7 +155,7 @@ export default function CommunityScreen() {
         <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#d9e3d0" />
       }
     >
-      {/* Header */}
+
       <View style={styles.pageHeader}>
         <Ionicons name="people-outline" size={20} color="#d9e3d0" />
         <Text style={styles.pageTitle}>Communities</Text>
@@ -171,7 +167,6 @@ export default function CommunityScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={18} color="#8a8d6a" />
         <TextInput
@@ -195,7 +190,6 @@ export default function CommunityScreen() {
         )}
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabRow}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'my' && styles.tabActive]}
@@ -217,7 +211,6 @@ export default function CommunityScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
       {activeTab === 'my' ? (
         myCommunities.length > 0 ? (
           myCommunities.map((c) => renderCommunityCard(c, false))

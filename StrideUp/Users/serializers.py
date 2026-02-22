@@ -26,7 +26,7 @@ class UserMinimalSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """User profile with follow stats."""
+    """User's profile with follow stats."""
     
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
@@ -45,7 +45,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
     
     def get_is_following(self, obj):
-        """Check if the requesting user is following this user."""
+        """Checks if the requesting user is following this user."""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             if request.user == obj:
@@ -54,7 +54,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return False
     
     def get_is_followed_by(self, obj):
-        """Check if this user is following the requesting user."""
+        """Checks if this user is following the requesting user."""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             if request.user == obj:
@@ -129,7 +129,7 @@ class FollowerListSerializer(serializers.ModelSerializer):
         return UserMinimalSerializer(obj.follower).data
     
     def get_is_following_back(self, obj):
-        """Check if the profile owner follows this follower back."""
+        """Checks if the profile owner follows this follower back."""
         request = self.context.get('request')
         profile_user = self.context.get('profile_user')
         if profile_user:

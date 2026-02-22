@@ -1,7 +1,7 @@
 import api from '../api';
 import { UserMinimal } from './followService';
 
-// ============ Types ============
+// Types
 
 export interface Community {
   id: number;
@@ -56,14 +56,7 @@ export interface CreateCommunityData {
   activity_types?: string[];
 }
 
-// ============ API Service ============
-
 export const communityService = {
-  // -------- Browse / Search --------
-
-  /**
-   * List all communities (optionally filter by search query)
-   */
   listCommunities: async (params?: {
     q?: string;
     mine?: boolean;
@@ -75,15 +68,11 @@ export const communityService = {
         mine: params?.mine ? 'true' : undefined,
       },
     });
-    // DRF may return paginated or array depending on config
     return Array.isArray(response.data)
       ? response.data
       : response.data.results || [];
   },
 
-  /**
-   * Get my communities
-   */
   getMyCommunities: async (): Promise<Community[]> => {
     const response = await api.get('/api/v1/communities/', {
       params: { mine: 'true' },
@@ -93,27 +82,16 @@ export const communityService = {
       : response.data.results || [];
   },
 
-  // -------- CRUD --------
-
-  /**
-   * Get community detail by ID
-   */
   getCommunity: async (id: number): Promise<CommunityDetail> => {
     const response = await api.get(`/api/v1/communities/${id}/`);
     return response.data;
   },
 
-  /**
-   * Create a new community
-   */
   createCommunity: async (data: CreateCommunityData): Promise<Community> => {
     const response = await api.post('/api/v1/communities/', data);
     return response.data;
   },
 
-  /**
-   * Update community settings (owner/admin only)
-   */
   updateCommunity: async (
     id: number,
     data: Partial<CreateCommunityData>
@@ -121,54 +99,32 @@ export const communityService = {
     const response = await api.patch(`/api/v1/communities/${id}/`, data);
     return response.data;
   },
-
-    /**
-   * Delete a community (owner only)
-   */
+  
   deleteCommunity: async (id: number): Promise<{ detail: string }> => {
     const response = await api.delete(`/api/v1/communities/${id}/`);
     return response.data;
   },
 
-  // -------- Membership --------
-
-  /**
-   * Join a community (or request to join if private)
-   */
   joinCommunity: async (id: number): Promise<{ detail: string }> => {
     const response = await api.post(`/api/v1/communities/${id}/join/`);
     return response.data;
   },
 
-  /**
-   * Leave a community
-   */
   leaveCommunity: async (id: number): Promise<{ detail: string }> => {
     const response = await api.post(`/api/v1/communities/${id}/leave/`);
     return response.data;
   },
 
-  /**
-   * Get active members of a community
-   */
   getMembers: async (id: number): Promise<CommunityMember[]> => {
     const response = await api.get(`/api/v1/communities/${id}/members/`);
     return response.data;
   },
 
-  // -------- Admin Actions --------
-
-  /**
-   * Get pending join requests (admin/owner only)
-   */
   getPendingRequests: async (id: number): Promise<CommunityMember[]> => {
     const response = await api.get(`/api/v1/communities/${id}/pending/`);
     return response.data;
   },
 
-  /**
-   * Approve a pending join request
-   */
   approveRequest: async (
     communityId: number,
     membershipId: number
@@ -179,9 +135,6 @@ export const communityService = {
     return response.data;
   },
 
-  /**
-   * Reject a pending join request
-   */
   rejectRequest: async (
     communityId: number,
     membershipId: number
@@ -192,9 +145,8 @@ export const communityService = {
     return response.data;
   },
 
-  /**
-   * Update a member's role (owner/admin only)
-   */
+  // Updates a member's role (owner/admin only)
+
   updateMemberRole: async (
     communityId: number,
     membershipId: number,
@@ -207,11 +159,8 @@ export const communityService = {
     return response.data;
   },
 
-  // -------- Invites --------
-
-  /**
-   * Get my pending community invites
-   */
+  // Get my pending community invites
+  
   getMyInvites: async (): Promise<CommunityInvite[]> => {
     const response = await api.get('/api/v1/my-invites/');
     return response.data;

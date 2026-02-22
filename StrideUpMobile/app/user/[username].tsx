@@ -56,7 +56,7 @@ export default function UserProfileScreen() {
 
     const currentStatus = profile.follow_status;
 
-    // If already following or requested, show confirmation
+    // If already following or requested, shows confirmation
     if (currentStatus === 'following' || currentStatus === 'requested') {
       const message = currentStatus === 'following'
         ? `Unfollow @${profile.username}?`
@@ -154,14 +154,14 @@ export default function UserProfileScreen() {
     }
   };
 
-  // Check if profile is private and user is not following
+  // Checks if profile is private and user is not following
   const isPrivateAndNotFollowing = profile?.is_private && 
     profile?.follow_status !== 'following' && 
     profile?.follow_status !== 'self';
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -201,7 +201,7 @@ export default function UserProfileScreen() {
             />
           }
         >
-          {/* Profile Header */}
+
           <View style={styles.profileSection}>
             <View style={styles.avatarLarge}>
               <Ionicons name="person" size={48} color="#8a8d6a" />
@@ -220,7 +220,6 @@ export default function UserProfileScreen() {
             )}
           </View>
 
-          {/* Stats Row */}
           <View style={styles.statsRow}>
             <TouchableOpacity 
               style={styles.statItem} 
@@ -245,7 +244,6 @@ export default function UserProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Follow Button (not shown for self) */}
           {profile.follow_status !== 'self' && (
             <View style={styles.actionRow}>
               <TouchableOpacity
@@ -268,14 +266,12 @@ export default function UserProfileScreen() {
             </View>
           )}
 
-          {/* Bio */}
           {profile.bio && !isPrivateAndNotFollowing && (
             <View style={styles.bioSection}>
               <Text style={styles.bioText}>{profile.bio}</Text>
             </View>
           )}
 
-          {/* Private Account Message */}
           {isPrivateAndNotFollowing && (
             <View style={styles.privateMessage}>
               <Ionicons name="lock-closed" size={40} color="#8a8d6a" />
@@ -286,12 +282,10 @@ export default function UserProfileScreen() {
             </View>
           )}
 
-          {/* Activities Section (placeholder for now) */}
           {!isPrivateAndNotFollowing && (
             <View style={styles.activitiesSection}>
               <Text style={styles.sectionTitle}>Recent Activities</Text>
-              
-              {/* Placeholder - will be replaced with actual activities */}
+
               <View style={styles.activityPlaceholder}>
                 <Ionicons name="fitness-outline" size={32} color="#8a8d6a" />
                 <Text style={styles.placeholderText}>
@@ -301,7 +295,6 @@ export default function UserProfileScreen() {
             </View>
           )}
 
-          {/* Bottom spacing for tab bar */}
           <View style={{ height: 100 }} />
         </ScrollView>
       )}

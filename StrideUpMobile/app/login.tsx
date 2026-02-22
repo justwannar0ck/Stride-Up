@@ -38,7 +38,7 @@ export default function LoginScreen() {
       });
 
       if (response.data.access && response.data.refresh) {
-        // Use the auth context login function
+        // Uses the auth context login function
         await login(response. data.access, response.data. refresh);
         // Navigation happens automatically via AuthContext
       }

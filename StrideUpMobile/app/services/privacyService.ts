@@ -24,27 +24,21 @@ export interface CreatePrivacyZoneData {
 }
 
 export const privacyService = {
-  // -------- Privacy Zones --------
-  
-  /**
-   * Get all privacy zones for current user
-   */
+  // Privacy Zones
+
+  // Gets all privacy zones for current user
   getPrivacyZones: async (): Promise<PrivacyZone[]> => {
     const response = await api.get('/api/users/me/privacy-zones/');
     return response.data;
   },
 
-  /**
-   * Create a new privacy zone
-   */
+  // Creates a new privacy zone
   createPrivacyZone: async (data: CreatePrivacyZoneData): Promise<PrivacyZone> => {
     const response = await api.post('/api/users/me/privacy-zones/', data);
     return response.data;
   },
 
-  /**
-   * Update a privacy zone
-   */
+  // Updates a privacy zone
   updatePrivacyZone: async (
     zoneId: number, 
     data: Partial<CreatePrivacyZoneData & { is_active: boolean }>
@@ -53,26 +47,20 @@ export const privacyService = {
     return response.data;
   },
 
-  /**
-   * Delete a privacy zone
-   */
+  // Deletes a privacy zone
   deletePrivacyZone: async (zoneId: number): Promise<void> => {
     await api.delete(`/api/users/me/privacy-zones/${zoneId}/`);
   },
 
-  // -------- Privacy Settings --------
-  
-  /**
-   * Get user's privacy settings
-   */
+  // Privacy Settings
+
+  // Gets user's privacy settings
   getPrivacySettings: async (): Promise<PrivacySettings> => {
     const response = await api.get('/api/users/me/privacy-settings/');
     return response.data;
   },
 
-  /**
-   * Update user's privacy settings
-   */
+  // Updates user's privacy settings
   updatePrivacySettings: async (
     data: Partial<PrivacySettings>
   ): Promise<PrivacySettings> => {

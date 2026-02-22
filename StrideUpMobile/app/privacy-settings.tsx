@@ -28,7 +28,7 @@ import api from './api';
 export default function PrivacySettingsScreen() {
   const router = useRouter();
   
-  // State
+  // States
   const [zones, setZones] = useState<PrivacyZone[]>([]);
   const [settings, setSettings] = useState<PrivacySettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function PrivacySettingsScreen() {
 
   const [isPrivateAccount, setIsPrivateAccount] = useState(false);
   
-  // Add zone modal state
+  // Zone modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [newZoneName, setNewZoneName] = useState('');
   const [newZoneRadius, setNewZoneRadius] = useState(200);
@@ -49,7 +49,7 @@ export default function PrivacySettingsScreen() {
     longitude: number;
   } | null>(null);
 
-  // Load data on mount
+  // Loads data on mount
   useEffect(() => {
     loadData();
     getCurrentLocation();
@@ -238,7 +238,7 @@ export default function PrivacySettingsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -276,7 +276,7 @@ export default function PrivacySettingsScreen() {
         style={styles.content}
         ListHeaderComponent={
           <>
-            {/* Default Settings Section */}
+
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Default Activity Settings</Text>
               
@@ -330,7 +330,6 @@ export default function PrivacySettingsScreen() {
               </View>
             </View>
 
-            {/* Privacy Zones Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <View>
@@ -363,7 +362,6 @@ export default function PrivacySettingsScreen() {
         }
       />
 
-      {/* Add Zone Modal */}
       <Modal
         visible={showAddModal}
         animationType="slide"

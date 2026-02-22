@@ -154,7 +154,7 @@ export default function FollowRequestsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>

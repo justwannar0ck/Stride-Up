@@ -122,7 +122,7 @@ export default function FollowingScreen() {
               <Ionicons name="person-add-outline" size={48} color="#8a8d6a" />
               <Text style={styles.emptyTitle}>Not Following Anyone</Text>
               <Text style={styles.emptyText}>
-                When this account follows people, they'll appear here.
+                When this account follows people, they will appear here.
               </Text>
             </View>
           }

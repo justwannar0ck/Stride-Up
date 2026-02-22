@@ -27,7 +27,7 @@ function TabIcon({ name, focused, label }: TabIconProps) {
   );
 }
 
-// Header Component (inline to avoid import issues)
+// Header Component
 function Header() {
   const router = useRouter();
 
@@ -36,7 +36,6 @@ function Header() {
       <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
       
       <View style={styles.header}>
-        {/* Logo */}
         <View style={styles.logoContainer}>
           <View style={styles.logoIcon}>
             <Ionicons name="footsteps" size={18} color="#4a4d2e" />
@@ -44,7 +43,6 @@ function Header() {
           <Text style={styles.logoText}>Stride Up</Text>
         </View>
 
-        {/* Account Button */}
         <TouchableOpacity 
           style={styles.accountButton}
           onPress={() => router.push('/account')}
@@ -60,10 +58,8 @@ function Header() {
 export default function TabLayout() {
   return (
     <View style={styles.container}>
-      {/* Header at the top */}
       <Header />
       
-      {/* Tab Navigator */}
       <Tabs
         screenOptions={{
           headerShown: false,

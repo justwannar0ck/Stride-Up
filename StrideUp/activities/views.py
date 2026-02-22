@@ -28,7 +28,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         
-        # For list action, only show user's own activities
+        # For list action, only shows user's own activities
         if self.action == 'list':
             return Activity.objects.filter(user=user)
         
@@ -132,7 +132,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Update with any provided data from request
+        # Updates with any provided data from request
         serializer = ActivityCompleteSerializer(data=request.data)
         if serializer.is_valid():
             if serializer.validated_data.get('title'):
@@ -144,18 +144,18 @@ class ActivityViewSet(viewsets.ModelViewSet):
             if 'hide_start_end' in serializer.validated_data:
                 activity.hide_start_end = serializer.validated_data['hide_start_end']
         
-        # Save the updates first
+        # Saves the updates first
         activity.save()
         
-        # Calculate statistics (this builds the route AND calculates stats)
+        # Calculates statistics (this builds the route AND calculates stats)
         activity.calculate_statistics()
         
-        # Mark as completed
+        # Marks as completed
         activity.status = Activity.Status.COMPLETED
         activity.finished_at = timezone.now()
         activity.save()
         
-        # Return response with activity details
+        # Returns response with activity details
         detail_serializer = ActivityDetailSerializer(activity, context={'request': request})
         return Response(detail_serializer.data)
     
@@ -210,14 +210,14 @@ class ActivityViewSet(viewsets.ModelViewSet):
         """Like/give kudos to an activity."""
         activity = self.get_object()
         
-        # Can't like your own activity
+        # Can't like our own activity
         if activity.user == request.user:
             return Response(
                 {'error': 'You cannot like your own activity'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if already liked
+        # Checks if already liked
         from .models import ActivityLike
         like, created = ActivityLike.objects.get_or_create(
             activity=activity,
@@ -237,7 +237,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def unlike(self, request, pk=None):
-        """Remove like/kudos from an activity."""
+        """Removes like/kudos from an activity."""
         activity = self.get_object()
         
         from .models import ActivityLike
@@ -259,7 +259,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def likes(self, request, pk=None):
-        """Get list of users who liked an activity."""
+        """Gets list of users who liked an activity."""
         activity = self.get_object()
         
         from .models import ActivityLike
@@ -283,7 +283,7 @@ class ActivityViewSet(viewsets.ModelViewSet):
 
 class UserStatisticsView(APIView):
     """
-    Get user's overall activity statistics.
+    Gets user's overall activity statistics.
     """
     
     permission_classes = [permissions.IsAuthenticated]
@@ -321,7 +321,7 @@ class UserStatisticsView(APIView):
             started_at__gte=month_start
         ).aggregate(distance=Sum('distance'))
         
-        # By activity type
+        # By activity types
         by_type = {}
         for activity_type in Activity.ActivityType.values:
             type_stats = completed_activities.filter(
@@ -380,19 +380,19 @@ class UserStatisticsView(APIView):
     
 class FeedView(APIView):
     """
-    Get activity feed from users the current user follows.
+    Gets activity feed from users the current user follows.
     """
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request):
         user = request.user
         
-        # Get list of user IDs that the current user follows
+        # Gets list of user IDs that the current user follows
         following_ids = Follow.objects.filter(
             follower=user
         ).values_list('following_id', flat=True)
         
-        # Get activities from followed users
+        # Gets activities from followed users
         activities = Activity.objects.filter(
             Q(user_id__in=following_ids) & 
             Q(status=Activity.Status.COMPLETED) &
@@ -410,7 +410,7 @@ class FeedView(APIView):
         total_count = activities.count()
         activities_page = activities[offset:offset + limit]
         
-        # Serialize the activities
+        # Serializes the activities
         serialized_activities = []
         for activity in activities_page:
             serialized_activities.append({
@@ -445,11 +445,11 @@ class FeedView(APIView):
         })
         
 class ActivityLikeView(APIView):
-    """Handle liking/unliking activities."""
+    """Handles liking/unliking activities."""
     permission_classes = [permissions.IsAuthenticated]
     
     def get_activity(self, pk, user):
-        """Get activity if user has permission to view it."""
+        """Gets activity if user has permission to view it."""
         following_ids = Follow.objects.filter(
             follower=user
         ).values_list('following_id', flat=True)
@@ -470,7 +470,7 @@ class ActivityLikeView(APIView):
             return None
     
     def post(self, request, pk):
-        """Like an activity."""
+        """Likes an activity."""
         activity = self.get_activity(pk, request.user)
         
         if not activity:
@@ -479,14 +479,14 @@ class ActivityLikeView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Can't like your own activity
+        # Can't like our own activity
         if activity.user == request.user:
             return Response(
                 {'error': 'You cannot like your own activity'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if already liked
+        # Checks if already liked
         like, created = ActivityLike.objects.get_or_create(
             activity=activity,
             user=request.user
@@ -504,7 +504,7 @@ class ActivityLikeView(APIView):
         }, status=status.HTTP_201_CREATED)
     
     def delete(self, request, pk):
-        """Unlike an activity."""
+        """Unlikes an activity."""
         activity = self.get_activity(pk, request.user)
         
         if not activity:
@@ -531,7 +531,7 @@ class ActivityLikeView(APIView):
 
 
 class ActivityLikesListView(APIView):
-    """Get list of users who liked an activity."""
+    """Gets list of users who liked an activity."""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, pk):

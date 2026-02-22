@@ -128,7 +128,7 @@ export default function FollowersScreen() {
               <Ionicons name="people-outline" size={48} color="#8a8d6a" />
               <Text style={styles.emptyTitle}>No Followers Yet</Text>
               <Text style={styles.emptyText}>
-                When people follow this account, they'll appear here.
+                When people follow this account, they will appear here.
               </Text>
             </View>
           }

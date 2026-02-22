@@ -34,7 +34,7 @@ export default function FeedScreen() {
   // Like loading state
   const [likingIds, setLikingIds] = useState<Set<number>>(new Set());
 
-  // Fetch feed on mount
+  // Fetches feed on mount
   useEffect(() => {
     fetchFeed(1, true);
   }, []);
@@ -76,7 +76,7 @@ export default function FeedScreen() {
     }
   };
 
-  // Handle like/unlike
+  // Handles like/unlike
   const handleLikePress = async (activity: FeedActivity) => {
     if (likingIds.has(activity.id)) return;
     
@@ -173,7 +173,7 @@ export default function FeedScreen() {
     }
   };
 
-  // Format relative time
+  // Formated relative time
   const getRelativeTime = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
@@ -215,7 +215,6 @@ export default function FeedScreen() {
     
     return (
       <View style={styles.feedItem}>
-        {/* User Header */}
         <TouchableOpacity 
           style={styles.feedItemHeader}
           onPress={() => navigateToProfile(item.user.username)}
@@ -239,7 +238,6 @@ export default function FeedScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Activity Content - Tappable for detail */}
         <TouchableOpacity
           style={styles.feedItemContent}
           onPress={() => router.push(`/activity/${item.id}`)}
@@ -314,7 +312,7 @@ export default function FeedScreen() {
     );
   };
 
-  // Render footer for loading more
+  // Renders footer for loading more
   const renderFooter = () => {
     if (!loadingMore) return null;
     return (
@@ -324,7 +322,7 @@ export default function FeedScreen() {
     );
   };
 
-  // Render empty feed state
+  // Renders empty feed state
   const renderEmptyFeed = () => (
     <View style={styles.emptyState}>
       <Ionicons name="newspaper-outline" size={64} color="#8a8d6a" />
@@ -344,13 +342,11 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Page Title */}
       <View style={styles.titleContainer}>
         <Ionicons name="newspaper-outline" size={24} color="#d9e3d0" />
         <Text style={styles.title}>Feed</Text>
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
           <Ionicons name="search" size={20} color="#8a8d6a" style={styles.searchIcon} />
@@ -371,7 +367,6 @@ export default function FeedScreen() {
         </View>
       </View>
 
-      {/* Search Results or Feed */}
       {isSearching ? (
         <View style={styles.searchResultsContainer}>
           {searchLoading ? (

@@ -26,7 +26,7 @@ export default function AccountScreen() {
     try {
       setLoading(true);
       
-      // Fetch profile and follow requests in parallel
+      // Fetches profile and follow requests in parallel
       const [profileData, requestsData] = await Promise.all([
         followService.getMyProfile(),
         followService.getFollowRequests(),
@@ -80,7 +80,7 @@ export default function AccountScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -96,7 +96,7 @@ export default function AccountScreen() {
       </View>
       
       <ScrollView style={styles.content}>
-        {/* Profile Section */}
+
         <View style={styles.profileSection}>
           <View style={styles.avatarLarge}>
             <Ionicons name="person" size={48} color="#8a8d6a" />
@@ -110,8 +110,7 @@ export default function AccountScreen() {
                 {profile.full_name || profile.username}
               </Text>
               <Text style={styles.userHandle}>@{profile.username}</Text>
-              
-              {/* Followers/Following Stats */}
+
               <View style={styles.statsRow}>
                 <TouchableOpacity 
                   style={styles.statItem} 
@@ -139,7 +138,6 @@ export default function AccountScreen() {
           )}
         </View>
 
-        {/* Follow Requests (only show if there are pending requests) */}
         {pendingRequestsCount > 0 && (
           <TouchableOpacity 
             style={styles.followRequestsBanner}
@@ -159,7 +157,6 @@ export default function AccountScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Menu Items */}
         <View style={styles.menuSection}>
           <TouchableOpacity style={styles.menuItem}>
             <Ionicons name="person-outline" size={22} color="#d9e3d0" />
@@ -211,7 +208,6 @@ export default function AccountScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={22} color="#e74c3c" />
           <Text style={styles.logoutText}>Logout</Text>

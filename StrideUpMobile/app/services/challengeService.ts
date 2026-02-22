@@ -1,6 +1,6 @@
 import api from '../api';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// Types
 
 export type ChallengeType = 'distance' | 'duration' | 'count' | 'elevation';
 export type ContributionScope = 'collective' | 'individual';
@@ -101,12 +101,8 @@ export interface GeocodedPlace {
   longitude: number;
 }
 
-// ─── Service ─────────────────────────────────────────────────────────────────
-
 export const challengeService = {
-  /**
-   * List all challenges for a community
-   */
+
   getChallenges: async (communityId: number): Promise<Challenge[]> => {
     const response = await api.get(
       `/api/v1/communities/${communityId}/challenges/`
@@ -114,9 +110,6 @@ export const challengeService = {
     return response.data;
   },
 
-  /**
-   * Get challenge detail with leaderboard and progress
-   */
   getChallenge: async (
     communityId: number,
     challengeId: number
@@ -132,9 +125,6 @@ export const challengeService = {
     return response.data;
   },
 
-  /**
-   * Create a new challenge (leaders only)
-   */
   createChallenge: async (
     communityId: number,
     data: CreateChallengeData
@@ -146,9 +136,8 @@ export const challengeService = {
     return response.data;
   },
 
-  /**
-   * Update challenge description (admins only)
-   */
+  // Updates challenge description (admins only)
+
   updateChallenge: async (
     communityId: number,
     challengeId: number,
@@ -161,9 +150,8 @@ export const challengeService = {
     return response.data;
   },
 
-  /**
-   * Cancel a challenge (admins only)
-   */
+  // Cancels a challenge (admins only)
+
   cancelChallenge: async (
     communityId: number,
     challengeId: number
@@ -174,9 +162,8 @@ export const challengeService = {
     return response.data;
   },
 
-  /**
-   * Join a challenge
-   */
+  // Joins a challenge
+
   joinChallenge: async (
     communityId: number,
     challengeId: number
@@ -187,9 +174,8 @@ export const challengeService = {
     return response.data;
   },
 
-  /**
-   * Leave a challenge
-   */
+  // Leaves a challenge
+  
   leaveChallenge: async (
     communityId: number,
     challengeId: number

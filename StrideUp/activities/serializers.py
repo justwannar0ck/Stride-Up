@@ -3,7 +3,6 @@ from django.contrib.gis.geos import LineString, Point
 from django.utils import timezone
 from .models import Activity, GPSPoint, ActivityPause, ActivityLike
 
-
 class GPSPointSerializer(serializers.ModelSerializer):
     """Serializer for individual GPS points"""
     
@@ -103,7 +102,7 @@ class ActivityCompleteSerializer(serializers.Serializer):
     )
     hide_start_end = serializers.BooleanField(required=False)
 
-# Update ActivityListSerializer - add these fields
+# Updated ActivityListSerializer
 class ActivityListSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
     distance_km = serializers.FloatField(read_only=True)
@@ -131,7 +130,7 @@ class ActivityListSerializer(serializers.ModelSerializer):
         return False
 
 
-# Update ActivityDetailSerializer - add these fields
+# Updated ActivityDetailSerializer
 class ActivityDetailSerializer(serializers.ModelSerializer):
     user_username = serializers.CharField(source='user.username', read_only=True)
     distance_km = serializers.FloatField(read_only=True)

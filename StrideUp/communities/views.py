@@ -37,7 +37,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
             )
         )
         
-        # Filter: my communities
+        # Filters: my communities
         mine = self.request.query_params.get('mine')
         if mine:
             qs = qs.filter(
@@ -55,7 +55,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         return qs.distinct()
     
     def perform_create(self, serializer):
-        # Auto-generate slug
+        # Auto-generated slug
         name = serializer.validated_data['name']
         base_slug = slugify(name)
         slug = base_slug
@@ -134,7 +134,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
     
-    # ── Join ──────────────────────────────────────────────────
+    # Join
     @action(detail=True, methods=['post'])
     def join(self, request, pk=None):
         community = self.get_object()
@@ -150,7 +150,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
                 return Response({'detail': 'You are banned from this community.'}, status=status.HTTP_403_FORBIDDEN)
             if existing.status == CommunityMembership.Status.PENDING:
                 return Response({'detail': 'Join request already pending.'}, status=status.HTTP_400_BAD_REQUEST)
-            # If LEFT, allow re-joining
+            # If LEFT, allows re-joining
             existing.status = (
                 CommunityMembership.Status.ACTIVE
                 if community.visibility == Community.Visibility.PUBLIC
@@ -160,7 +160,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
             existing.save()
             return Response({'detail': 'Joined!' if existing.status == 'active' else 'Request sent.'})
         
-        # Check max members
+        # Checks max members
         if community.members_count >= community.max_members:
             return Response({'detail': 'Community is full.'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -180,7 +180,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         msg = 'Joined successfully!' if membership_status == 'active' else 'Join request sent.'
         return Response({'detail': msg}, status=status.HTTP_201_CREATED)
     
-    # ── Leave ─────────────────────────────────────────────────
+    # Leave
     @action(detail=True, methods=['post'])
     def leave(self, request, pk=None):
         community = self.get_object()
@@ -202,7 +202,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         membership.save()
         return Response({'detail': 'Left the community.'})
     
-    # ── Members list ──────────────────────────────────────────
+    # Members list
     @action(detail=True, methods=['get'])
     def members(self, request, pk=None):
         community = self.get_object()
@@ -212,7 +212,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         serializer = MembershipSerializer(memberships, many=True)
         return Response(serializer.data)
     
-    # ── Pending requests (admin only) ─────────────────────────
+    # Pending requests (admin only)
     @action(detail=True, methods=['get'])
     def pending(self, request, pk=None):
         community = self.get_object()
@@ -233,7 +233,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         serializer = MembershipSerializer(pending, many=True)
         return Response(serializer.data)
     
-    # ── Approve / Reject ──────────────────────────────────────
+    # Approve / Reject
     @action(detail=True, methods=['post'], url_path='approve/(?P<membership_id>[0-9]+)')
     def approve(self, request, pk=None, membership_id=None):
         community = self.get_object()
@@ -271,7 +271,7 @@ class CommunityViewSet(viewsets.ModelViewSet):
         target.delete()
         return Response({'detail': 'Request rejected.'})
     
-    # ── Update member role ────────────────────────────────────
+    # Update member role
     @action(detail=True, methods=['patch'], url_path='role/(?P<membership_id>[0-9]+)')
     def update_role(self, request, pk=None, membership_id=None):
         community = self.get_object()
@@ -311,7 +311,7 @@ class MyCommunityInvitesView(generics.ListAPIView):
             status=CommunityInvite.Status.PENDING,
         ).select_related('community', 'invited_by', 'invited_user')
         
-# ─── Challenge Views ──────────────────────────────────────────────────────────
+# Challenge Views
 
 from .models import Challenge, ChallengeParticipant, ChallengeContribution
 from .serializers import (
@@ -391,7 +391,7 @@ class ChallengeViewSet(viewsets.ModelViewSet):
 
         initial_status = Challenge.Status.ACTIVE if now >= start else Challenge.Status.UPCOMING
 
-        # Check if this is a route challenge
+        # Checks if this is a route challenge
         is_route = request.data.get('is_route_challenge', False)
         waypoints_data = request.data.get('route_waypoints', [])
 
@@ -568,7 +568,7 @@ class ChallengeFeedView(APIView):
             status=CommunityMembership.Status.ACTIVE,
         ).values_list('community_id', flat=True)
 
-        # --- My Challenges: active/upcoming from my communities ---
+        # My Challenges: active/upcoming from my communities
         my_challenges = Challenge.objects.filter(
             community_id__in=my_community_ids,
             status__in=[Challenge.Status.ACTIVE, Challenge.Status.UPCOMING],
@@ -584,7 +584,7 @@ class ChallengeFeedView(APIView):
             status__in=[Challenge.Status.ACTIVE, Challenge.Status.UPCOMING],
         ).select_related('community', 'created_by')
 
-        # --- Discover Challenges: active/upcoming from PUBLIC communities I'm NOT in ---
+        # Discover Challenges: active/upcoming from PUBLIC communities I'm NOT in
         discover_challenges = Challenge.objects.filter(
             community__visibility=Community.Visibility.PUBLIC,
             status__in=[Challenge.Status.ACTIVE, Challenge.Status.UPCOMING],
@@ -611,8 +611,7 @@ class ChallengeFeedView(APIView):
             discover_challenges, many=True, context={'request': request}
         ).data
 
-        # Add community name + id to each challenge for the frontend
-        # (You'll want to add community_name/community_id to your ChallengeListSerializer too)
+        # Adds community name + id to each challenge for the frontend
 
         return Response({
             'my_challenges': my_data,
@@ -623,7 +622,6 @@ import requests as http_requests
 
 class GeocodeView(APIView):
     """
-    GET /api/v1/geocode/?q=Thamel+Kathmandu
     Uses OpenStreetMap Nominatim (free, no API key) to geocode a place name.
     """
     permission_classes = [permissions.IsAuthenticated]

@@ -89,7 +89,7 @@ export default function ActivityDetailScreen() {
   }
 };
 
-  // Get activity type icon
+  // Gets activity type icon
   const getActivityIcon = (type: string): keyof typeof Ionicons.glyphMap => {
     switch (type) {
       case 'run':
@@ -105,7 +105,7 @@ export default function ActivityDetailScreen() {
     }
   };
 
-  // Format date
+  // Formats date
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -116,7 +116,7 @@ export default function ActivityDetailScreen() {
     });
   };
 
-  // Format time
+  // Formats time
   const formatTime = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', {
@@ -125,7 +125,7 @@ export default function ActivityDetailScreen() {
     });
   };
 
-  // Get map region from route coordinates
+  // Gets map region from route coordinates
   const getMapRegion = () => {
     if (!activity?.route_geojson?.coordinates?.length) {
       return null;
@@ -158,7 +158,7 @@ export default function ActivityDetailScreen() {
     };
   };
 
-  // Convert GeoJSON coordinates to map format
+  // Converts GeoJSON coordinates to map format
   const getRouteCoordinates = () => {
     if (!activity?.route_geojson?.coordinates) return [];
     
@@ -173,7 +173,7 @@ export default function ActivityDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -211,7 +211,7 @@ export default function ActivityDetailScreen() {
             />
           }
         >
-          {/* User Info */}
+
           <TouchableOpacity
             style={styles.userSection}
             onPress={navigateToUserProfile}
@@ -229,7 +229,6 @@ export default function ActivityDetailScreen() {
             <Ionicons name="chevron-forward" size={20} color="#8a8d6a" />
           </TouchableOpacity>
 
-          {/* Activity Title */}
           <View style={styles.titleSection}>
             <View style={styles.titleRow}>
               <Ionicons
@@ -244,7 +243,6 @@ export default function ActivityDetailScreen() {
             ) : null}
           </View>
 
-          {/* Map */}
           {mapRegion && routeCoordinates.length > 0 && (
             <View style={styles.mapContainer}>
               <MapView
@@ -265,7 +263,6 @@ export default function ActivityDetailScreen() {
             </View>
           )}
 
-          {/* Main Stats */}
           <View style={styles.mainStatsContainer}>
             <View style={styles.mainStat}>
               <Text style={styles.mainStatValue}>
@@ -289,7 +286,6 @@ export default function ActivityDetailScreen() {
             </View>
           </View>
 
-          {/* Secondary Stats */}
           <View style={styles.secondaryStatsContainer}>
             <View style={styles.statsRow}>
               <View style={styles.secondaryStat}>
@@ -355,7 +351,6 @@ export default function ActivityDetailScreen() {
             </View>
           </View>
 
-          {/* Visibility Badge */}
           <View style={styles.visibilitySection}>
             <Ionicons
               name={
@@ -377,7 +372,6 @@ export default function ActivityDetailScreen() {
             </Text>
           </View>
 
-          {/* Like Section */}
           {activity.user_username !== 'YOUR_USERNAME' && (
             <View style={styles.likeSection}>
               <TouchableOpacity
@@ -407,7 +401,6 @@ export default function ActivityDetailScreen() {
             </View>
           )}
 
-          {/* Bottom spacing */}
           <View style={{ height: 100 }} />
         </ScrollView>
       )}

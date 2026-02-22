@@ -142,7 +142,7 @@ export default function TrackScreen() {
     }
   };
 
-  // Get current location (initial)
+  // Gets current location (initial)
   const getCurrentLocation = async () => {
     try {
       const location = await Location.getCurrentPositionAsync({
@@ -154,7 +154,7 @@ export default function TrackScreen() {
     }
   };
 
-  // Calculate distance between two points
+  // Calculates distance between two points
   const calculateDistanceBetweenPoints = (point1: GPSPoint, point2: GPSPoint): number => {
     const R = 6371e3;
     const lat1 = (point1.latitude * Math.PI) / 180;
@@ -170,7 +170,7 @@ export default function TrackScreen() {
     return R * c;
   };
 
-  // Process new location
+  // Processes new location
   const processLocation = useCallback(
     (location: Location.LocationObject) => {
       const newPoint: GPSPoint = {
@@ -182,7 +182,7 @@ export default function TrackScreen() {
         speed: location.coords.speed,
       };
 
-      // Filter inaccurate points
+      // Filters inaccurate points
       if (newPoint.accuracy && newPoint.accuracy > 50) {
         return;
       }
@@ -190,7 +190,7 @@ export default function TrackScreen() {
       setCurrentLocation(location);
       setRouteCoordinates((prev) => [...prev, newPoint]);
 
-      // Calculate distance
+      // Calculates distance
       if (lastLocationRef.current) {
         const segmentDistance = calculateDistanceBetweenPoints(lastLocationRef.current, newPoint);
         if (segmentDistance > 2 && segmentDistance < 100) {
@@ -200,7 +200,7 @@ export default function TrackScreen() {
 
       lastLocationRef.current = newPoint;
 
-      // Update activity context
+      // Updates activity context
       addGPSPoint(newPoint);
       updateSpeed(location.coords.speed || 0);
       if (location.coords.altitude !== null) {
@@ -210,7 +210,7 @@ export default function TrackScreen() {
     [addGPSPoint, updateSpeed, updateElevation]
   );
 
-  // Start location tracking
+  // Starts location tracking
   const startLocationTracking = async () => {
     try {
       const initialLocation = await Location.getCurrentPositionAsync({
@@ -234,7 +234,7 @@ export default function TrackScreen() {
     }
   };
 
-  // Stop location tracking
+  // Stops location tracking
   const stopLocationTracking = () => {
     if (locationSubscription) {
       locationSubscription. remove();
@@ -242,14 +242,14 @@ export default function TrackScreen() {
     }
   };
 
-  // Update distance in context
+  // Updates distance in context
   useEffect(() => {
     if (status === 'recording') {
       updateDistance(trackedDistance);
     }
   }, [trackedDistance, status, updateDistance]);
 
-  // Keep screen awake during recording
+  // Keeps screen awake during recording
   useEffect(() => {
     if (status === 'recording' || status === 'paused') {
       activateKeepAwakeAsync();
@@ -262,7 +262,7 @@ export default function TrackScreen() {
     };
   }, [status]);
 
-  // Center map on current location
+  // Centers the map on current location
   useEffect(() => {
     if (currentLocation && mapRef) {
       mapRef.animateToRegion({
@@ -274,7 +274,7 @@ export default function TrackScreen() {
     }
   }, [currentLocation, mapRef]);
 
-  // Format time display
+  // Formats time display
   const formatTime = (seconds: number): string => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -282,7 +282,7 @@ export default function TrackScreen() {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Format pace display
+  // Formats pace display
   const formatPace = (secondsPerKm: number): string => {
     if (secondsPerKm === 0 || ! isFinite(secondsPerKm)) return '--:--';
     const mins = Math.floor(secondsPerKm / 60);
@@ -290,14 +290,14 @@ export default function TrackScreen() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Handle activity type selection
+  // Handles activity type selection
   const handleActivityTypeSelect = (type: ActivityType) => {
     if (status === 'idle') {
       setActivityType(type);
     }
   };
 
-  // Handle start
+  // Handles start
   const handleStart = async () => {
     if (permissionStatus !== 'granted') {
       const granted = await requestPermissions();
@@ -313,19 +313,19 @@ export default function TrackScreen() {
     }
   };
 
-  // Handle pause
+  // Handles pause
   const handlePause = async () => {
     stopLocationTracking();
     await pauseActivity();
   };
 
-  // Handle resume
+  // Handles resume
   const handleResume = async () => {
     await resumeActivity();
     startLocationTracking();
   };
 
-  // Handle stop
+  // Handles stop
   const handleStop = () => {
     Alert.alert(
       'Finish Activity',
@@ -363,7 +363,7 @@ export default function TrackScreen() {
     );
   };
 
-  // Get map coordinates for polyline
+  // Gets map coordinates for polyline
   const getMapCoordinates = () => {
     return routeCoordinates.map((point) => ({
       latitude:  point.latitude,
@@ -373,7 +373,7 @@ export default function TrackScreen() {
 
   const mapCoordinates = getMapCoordinates();
 
-  // Render permission request screen
+  // Renders permission request screen
   if (permissionChecked && permissionStatus === 'denied' && status === 'idle') {
     return (
       <View style={styles.container}>
@@ -422,7 +422,6 @@ export default function TrackScreen() {
         )}
       </View>
 
-      {/* Activity Type Selector */}
       {status === 'idle' && (
         <View style={styles. activityTypes}>
           {(['run', 'walk', 'cycle', 'hike'] as ActivityType[]).map((type) => (
@@ -452,7 +451,6 @@ export default function TrackScreen() {
         </View>
       )}
 
-      {/* Map */}
       <View style={styles.mapContainer}>
         <MapView
           ref={(ref) => setMapRef(ref)}
@@ -492,7 +490,6 @@ export default function TrackScreen() {
         )}
       </View>
 
-      {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.mainStat}>
           <Text style={styles.mainStatValue}>{(distance / 1000).toFixed(2)}</Text>
@@ -529,7 +526,6 @@ export default function TrackScreen() {
         )}
       </View>
 
-      {/* Controls */}
       <View style={styles.controlsContainer}>
         {status === 'idle' ?  (
           <TouchableOpacity style={styles.startButton} onPress={handleStart}>
@@ -559,7 +555,6 @@ export default function TrackScreen() {
         )}
       </View>
 
-      {/* Paused Banner */}
       {status === 'paused' && (
         <View style={styles.pausedBanner}>
           <Ionicons name="pause-circle" size={20} color="#f39c12" />

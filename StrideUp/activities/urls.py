@@ -11,6 +11,5 @@ urlpatterns = [
     # Like URLs using dedicated views
     path('<int:pk>/like/', ActivityLikeView.as_view(), name='activity-like'),
     path('<int:pk>/likes/', ActivityLikesListView.as_view(), name='activity-likes'),
-    # Router URLs last
     path('', include(router.urls)),
 ]

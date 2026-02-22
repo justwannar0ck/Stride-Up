@@ -24,7 +24,7 @@ import {
 } from './services/challengeService';
 import { consumePendingWaypoints } from './route-store';
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+// Configurations
 
 const CHALLENGE_TYPES: {
   value: ChallengeType;
@@ -45,13 +45,10 @@ const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: string }[] = [
   { value: 'hike', label: 'Hike', icon: 'trail-sign-outline' },
 ];
 
-// ─── Component ───────────────────────────────────────────────────────────────
-
 export default function ChallengeCreateScreen() {
   const router = useRouter();
   const { communityId } = useLocalSearchParams<{ communityId: string }>();
 
-  // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [challengeType, setChallengeType] = useState<ChallengeType>('distance');
@@ -68,8 +65,6 @@ export default function ChallengeCreateScreen() {
   const [isRouteChallenge, setIsRouteChallenge] = useState(false);
   const [routeWaypoints, setRouteWaypoints] = useState<any[]>([]);
 
-  // Check for pending waypoints every time this screen gets focus
-  // (i.e. when route-builder calls router.back() and we return here)
   useFocusEffect(
     useCallback(() => {
       const pending = consumePendingWaypoints();
@@ -162,11 +157,11 @@ export default function ChallengeCreateScreen() {
     }
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // Render
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
       <View style={styles.headerContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#4a4d2e" />
         <View style={styles.header}>
@@ -183,7 +178,7 @@ export default function ChallengeCreateScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Title & Description ── */}
+
         <View style={styles.section}>
           <Text style={styles.label}>Title *</Text>
           <TextInput
@@ -209,7 +204,6 @@ export default function ChallengeCreateScreen() {
           />
         </View>
 
-        {/* ── Challenge Type ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="options-outline" size={18} color="#d9e3d0" />
@@ -242,7 +236,6 @@ export default function ChallengeCreateScreen() {
           </View>
         </View>
 
-        {/* ── Scope ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="people-outline" size={18} color="#d9e3d0" />
@@ -288,7 +281,6 @@ export default function ChallengeCreateScreen() {
           </View>
         </View>
 
-        {/* ── Target ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="flag-outline" size={18} color="#d9e3d0" />
@@ -314,7 +306,6 @@ export default function ChallengeCreateScreen() {
           </Text>
         </View>
 
-        {/* ── Activity Types ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="fitness-outline" size={18} color="#d9e3d0" />
@@ -348,7 +339,6 @@ export default function ChallengeCreateScreen() {
           </View>
         </View>
 
-        {/* ── Route Challenge Toggle ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="navigate-outline" size={18} color="#d9e3d0" />
@@ -391,8 +381,6 @@ export default function ChallengeCreateScreen() {
               <TouchableOpacity
                 style={styles.buildRouteButton}
                 onPress={() => {
-                  // Just push — form state lives in React state on this screen,
-                  // which survives because we use router.back() to return
                   router.push({
                     pathname: '/route-builder',
                     params: {
@@ -454,7 +442,6 @@ export default function ChallengeCreateScreen() {
           )}
         </View>
 
-        {/* ── Dates ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Ionicons name="calendar-outline" size={18} color="#d9e3d0" />
@@ -512,7 +499,6 @@ export default function ChallengeCreateScreen() {
           )}
         </View>
 
-        {/* ── Submit ── */}
         <TouchableOpacity
           style={[styles.submitButton, isSubmitting && { opacity: 0.6 }]}
           onPress={handleSubmit}
@@ -534,7 +520,7 @@ export default function ChallengeCreateScreen() {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
+// Styles
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#5c5f3d' },
