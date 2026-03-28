@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Activity, GPSPoint, ActivityPause
+from .models import Activity, GPSPoint, ActivityPause, CoachChatMessage
 
 
 class GPSPointInline(admin.TabularInline):
@@ -67,3 +67,10 @@ class GPSPointAdmin(admin.ModelAdmin):
     list_display = ['activity', 'latitude', 'longitude', 'elevation', 'timestamp', 'accuracy']
     list_filter = ['activity__user', 'activity']
     search_fields = ['activity__title', 'activity__user__username']
+    
+@admin.register(CoachChatMessage)
+class CoachChatMessageAdmin(admin.ModelAdmin):
+    list_display = ['activity', 'user', 'role', 'created_at']
+    list_filter = ['role', 'created_at']
+    search_fields = ['message', 'user__username', 'activity__title']
+    readonly_fields = ['created_at']

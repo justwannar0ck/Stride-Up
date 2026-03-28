@@ -215,40 +215,61 @@ class Activity(models.Model):
         if gps_points.count() < 2:
             return
         
-        # Builds route from GPS points
+        # Build route from GPS points
         coords = [(p.longitude, p.latitude) for p in gps_points]
         self.route = LineString(coords, srid=4326)
         
-        # Sets start and end points
+        # Set start and end points
         first_point = gps_points.first()
         last_point = gps_points.last()
         
         self.start_point = Point(first_point.longitude, first_point.latitude, srid=4326)
         self.end_point = Point(last_point.longitude, last_point.latitude, srid=4326)
         
-        # Applies privacy masking if enabled
+        # FIX: Sync the activity timestamps with the actual GPS data
+        self.started_at = first_point.timestamp
+        self.finished_at = last_point.timestamp
+        
+        # Apply privacy masking if enabled
         if self.hide_start_end:
             self.apply_privacy_masking()
         
-        # Calculates distance (PostGIS geography gives us meters)
-        self.distance = self.route.length
+        # FIX: Calculate distance in meters using Haversine instead of .length
+        total_distance_meters = 0.0
+        R = 6371000  # Earth's radius in meters
         
-        # Calculates duration
+        for i in range(1, len(coords)):
+            lon1, lat1 = coords[i-1]
+            lon2, lat2 = coords[i]
+            
+            phi1, phi2 = math.radians(lat1), math.radians(lat2)
+            delta_phi = math.radians(lat2 - lat1)
+            delta_lambda = math.radians(lon2 - lon1)
+            
+            a = math.sin(delta_phi / 2.0)**2 + \
+                math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            
+            total_distance_meters += R * c
+            
+        self.distance = total_distance_meters
+        
+        # Calculate duration
         if first_point.timestamp and last_point.timestamp:
             self.total_elapsed_time = last_point.timestamp - first_point.timestamp
             
-            # Calculates active duration (excluding pauses)
+            # Calculate active duration (excluding pauses)
             pause_duration = self._calculate_pause_duration()
             self.duration = self.total_elapsed_time - pause_duration
         
-        # Calculates pace and speed
+        # Calculate pace and speed (This will now work correctly!)
         if self.distance and self.duration:
             self._calculate_pace_and_speed()
         
-        # Calculates elevation
+        # Calculate elevation
         self._calculate_elevation()
         
-        # Calculates calories
+        # Calculate calories
         self._calculate_calories()
         
         self.save()
@@ -583,3 +604,21 @@ class ActivityLike(models.Model):
     def __str__(self):
         return f"{self.user.username} liked {self.activity.title}"
     
+class CoachChatMessage(models.Model):
+    """Stores the chat history between the user and the AI Coach for an activity."""
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('model', 'AI Coach'), # Gemini uses 'model' for the AI's role
+    ]
+    
+    activity = models.ForeignKey(Activity, on_delete=models.CASCADE, related_name='coach_messages', null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at'] # Ensures chats are loaded in chronological order
+
+    def __str__(self):
+        return f"{self.role} message on {self.activity.title}"

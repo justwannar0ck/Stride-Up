@@ -15,6 +15,52 @@ class User(AbstractUser):
     date_of_birth = models.DateField(null=True, blank=True)
     profile_picture = models.URLField(max_length=500, blank=True)
     
+    # Advanced AI Coach & Biometrics
+    is_ai_coach_enabled = models.BooleanField(
+        default=False, 
+        help_text="Has the user opted-in to the AI coach features?"
+    )
+    
+    # Basic Biometrics
+    weight_kg = models.FloatField(null=True, blank=True)
+    height_cm = models.FloatField(null=True, blank=True)
+    
+    GENDER_CHOICES = [
+        ('M', 'Male'),
+        ('F', 'Female'),
+        ('O', 'Other'),
+        ('P', 'Prefer not to say'),
+    ]
+    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True, null=True)
+    
+    # Advanced Physiology (Optional, user can fill these out if they know them)
+    resting_heart_rate = models.PositiveIntegerField(null=True, blank=True, help_text="RHR in beats per minute (bpm)")
+    max_heart_rate = models.PositiveIntegerField(null=True, blank=True, help_text="Max HR in beats per minute (bpm)")
+    
+    # Coaching Context
+    EXPERIENCE_CHOICES = [
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced'),
+    ]
+    experience_level = models.CharField(max_length=20, choices=EXPERIENCE_CHOICES, default='beginner', blank=True)
+    
+    GOAL_CHOICES = [
+        ('weight_loss', 'Weight Loss'),
+        ('endurance', 'Build Endurance (Run further)'),
+        ('speed', 'Build Speed (Run faster)'),
+        ('general_fitness', 'General Health & Fitness'),
+        ('stress_relief', 'Mental Health & Stress Relief'),
+    ]
+    primary_goal = models.CharField(max_length=30, choices=GOAL_CHOICES, blank=True, null=True)
+    
+    # Free-text field for the LLM to read regarding physical limits
+    medical_conditions_or_injuries = models.TextField(
+        max_length=500, 
+        blank=True, 
+        help_text="E.g., 'Asthma', 'Recovering from torn ACL', 'Sensitive lower back'"
+    )
+    
     # Privacy settings
     is_private = models.BooleanField(default=False)
     

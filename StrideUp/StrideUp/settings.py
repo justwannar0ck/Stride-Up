@@ -5,6 +5,9 @@ Django settings for StrideUp project.
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -40,7 +43,7 @@ SECRET_KEY = "django-insecure-7m&=mh%+=$2ey4$bojvqh36j8k*gm$js0p_@1x$!5ix36x23^p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.90.131.204', '*']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '192.168.1.64', '*']
 
 
 # Application definition
@@ -60,6 +63,7 @@ INSTALLED_APPS = [
     "djoser",
     "corsheaders",
     "communities",
+    "gamification",
 ]
 
 MIDDLEWARE = [
@@ -179,3 +183,7 @@ LEAFLET_CONFIG = {
     'SCALE': 'both',
     'ATTRIBUTION_PREFIX': 'StrideUp',
 }
+
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    print("WARNING: GEMINI_API_KEY is not set in the .env file.")

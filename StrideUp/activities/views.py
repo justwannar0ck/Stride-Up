@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from django.db.models import Sum, Avg, Max, Min, Count, Q
 from datetime import timedelta
-from .models import Activity, GPSPoint, ActivityPause, ActivityLike
+from .models import Activity, GPSPoint, ActivityPause, ActivityLike, CoachChatMessage
 from .serializers import (
     ActivityCreateSerializer,
     ActivityUpdateSerializer,
@@ -16,6 +16,8 @@ from .serializers import (
     ActivityPauseSerializer,
 )
 from Users.models import Follow
+import google.generativeai as genai
+from django.conf import settings
 
 
 class ActivityViewSet(viewsets.ModelViewSet):
@@ -155,9 +157,18 @@ class ActivityViewSet(viewsets.ModelViewSet):
         activity.finished_at = timezone.now()
         activity.save()
         
-        # Returns response with activity details
+        from gamification.services import award_activity_points
+        points_result = award_activity_points(activity)
+
         detail_serializer = ActivityDetailSerializer(activity, context={'request': request})
-        return Response(detail_serializer.data)
+        response_data = detail_serializer.data
+
+        if points_result:
+            response_data['points_earned'] = points_result['points_earned']
+            response_data['points_breakdown'] = points_result['breakdown']
+            response_data['total_points'] = points_result['new_balance']
+
+        return Response(response_data)
     
     @action(detail=True, methods=['post'])
     def discard(self, request, pk=None):
@@ -279,7 +290,171 @@ class ActivityViewSet(viewsets.ModelViewSet):
             'count': len(users),
             'results': users
         })
+    
+    @action(detail=True, methods=['post', 'get'])
+    def coach_chat(self, request, pk=None):
+        """AI Coach chat tied to a specific activity"""
+        activity = self.get_object()
+        user = request.user
+        
+        # Security Check: Ensure this is the user's own activity
+        if activity.user != user:
+            return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
 
+        # Handle GET: Return current conversation thread
+        if request.method == 'GET':
+            messages = CoachChatMessage.objects.filter(activity=activity).values('role', 'message', 'created_at')
+            return Response({"history": list(messages)}, status=status.HTTP_200_OK)
+
+        # Handle POST: Process new message
+        user_message = request.data.get('message', '')
+        if not user_message:
+            return Response({"error": "Message is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch past history ONLY for this Activity Type (e.g., previous running questions)
+        past_type_chats = CoachChatMessage.objects.filter(
+            user=user, 
+            activity__activity_type=activity.activity_type, 
+            role='user'
+        ).exclude(
+            activity=activity # Exclude current session
+        ).order_by('-created_at')[:5] 
+
+        type_history_str = "\n".join([f"- {msg.message}" for msg in past_type_chats])
+        if not type_history_str:
+            type_history_str = "No previous history for this activity type."
+
+        # Build Context Prompt using the updated User model fields
+        system_prompt = f"""
+        You are an expert {activity.activity_type} coach talking to {user.first_name or 'an athlete'}.
+        
+        USER PROFILE:
+        - Experience: {user.experience_level or 'beginner'}
+        - Weight: {user.weight_kg or 'Unknown'}kg, Height: {user.height_cm or 'Unknown'}cm
+        - Medical/Injuries: {user.medical_conditions_or_injuries or 'None'}
+        
+        CURRENT ACTIVITY ({activity.activity_type}):
+        - Distance: {activity.distance_km}km
+        - Pace: {activity.pace_formatted}/km
+        - Duration: {activity.duration_formatted}
+        
+        USER'S PAST CHAT HISTORY FOR {activity.activity_type.upper()}:
+        {type_history_str}
+        
+        RULES:
+        1. Keep answers concise (under 4 sentences) and highly encouraging.
+        2. Use their past chat history to provide better, continuous advice for this specific sport.
+        """
+
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            
+            model = genai.GenerativeModel(
+                model_name="gemini-2.5-flash",
+                system_instruction=system_prompt
+            )
+
+            # Get the ongoing chat for THIS specific activity session to maintain context
+            current_session_msgs = CoachChatMessage.objects.filter(activity=activity).order_by('created_at')
+            history = [{"role": msg.role, "parts": [msg.message]} for msg in current_session_msgs]
+
+            chat = model.start_chat(history=history)
+
+            # Save the new user message to DB
+            CoachChatMessage.objects.create(activity=activity, user=user, role='user', message=user_message)
+
+            # Get AI Response
+            response = chat.send_message(user_message)
+            ai_reply = response.text.strip()
+
+            # Save AI Response to DB
+            CoachChatMessage.objects.create(activity=activity, user=user, role='model', message=ai_reply)
+
+            return Response({"reply": ai_reply, "role": "model"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"Gemini Error: {e}")
+            return Response({"error": "Failed to connect to AI Coach"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    @action(detail=False, methods=['post', 'get'])
+    def general_chat(self, request):
+        """Global AI Coach chat that knows the user's recent workout history."""
+        user = request.user
+        
+        if request.method == 'GET':
+            # Retrieve general chat history (where activity is Null)
+            messages = CoachChatMessage.objects.filter(user=user, activity__isnull=True).values('role', 'message', 'created_at')
+            return Response({"history": list(messages)}, status=status.HTTP_200_OK)
+
+        user_message = request.data.get('message', '')
+        if not user_message:
+            return Response({"error": "Message is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Gets the last 5 completed activities of ANY type
+        recent_activities = Activity.objects.filter(
+            user=user, 
+            status=Activity.Status.COMPLETED
+        ).order_by('-started_at')[:5]
+
+        # Formats them into a readable list for the AI
+        activities_str = ""
+        if recent_activities.exists():
+            for act in recent_activities:
+                date_str = act.started_at.strftime("%b %d") if act.started_at else "Recently"
+                activities_str += f"- {date_str} [{act.activity_type.upper()}]: {act.distance_km}km in {act.duration_formatted}. Pace: {act.pace_formatted}/km.\n"
+        else:
+            activities_str = "No recent completed activities."
+
+        # General System Prompt
+        system_prompt = f"""
+        You are an expert, encouraging general fitness coach talking to {user.first_name or 'an athlete'}.
+        
+        USER PROFILE:
+        - Goal: {user.primary_goal or 'General Fitness'}
+        - Experience: {user.experience_level or 'beginner'}
+        - Weight: {user.weight_kg or 'Unknown'}kg, Height: {user.height_cm or 'Unknown'}cm
+        - Medical/Injuries: {user.medical_conditions_or_injuries or 'None'}
+        
+        USER'S RECENT WORKOUT HISTORY (Max last 5 activities):
+        {activities_str}
+        
+        RULES:
+        1. Give expert advice on training, diet, recovery, or motivation.
+        2. Look at their RECENT WORKOUT HISTORY to give highly personalized advice (e.g., if they ran a lot recently, suggest recovery).
+        3. Keep answers concise (under 4 sentences) and highly encouraging.
+        """
+
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            
+            model = genai.GenerativeModel(
+                model_name="gemini-2.5-flash",
+                system_instruction=system_prompt
+            )
+
+            # Gets past general chat history
+            past_messages = CoachChatMessage.objects.filter(user=user, activity__isnull=True).order_by('created_at')
+            history = [{"role": msg.role, "parts": [msg.message]} for msg in past_messages]
+
+            chat = model.start_chat(history=history)
+
+            # Saves user message
+            CoachChatMessage.objects.create(user=user, role='user', message=user_message, activity=None)
+
+            # Get AI Response
+            response = chat.send_message(user_message)
+            ai_reply = response.text.strip()
+
+            # Saves AI reply
+            CoachChatMessage.objects.create(user=user, role='model', message=ai_reply, activity=None)
+
+            return Response({"reply": ai_reply, "role": "model"}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"Gemini Error: {e}")
+            return Response({"error": "Failed to connect to AI Coach"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserStatisticsView(APIView):
     """

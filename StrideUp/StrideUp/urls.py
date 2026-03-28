@@ -8,4 +8,5 @@ urlpatterns = [
     path("api/v1/activities/", include("activities.urls")),
     path('api/', include('Users.urls')),
     path('api/v1/', include('communities.urls')),
+    path('api/v1/', include('gamification.urls')),
 ]

@@ -23,6 +23,13 @@ class UserAdmin(BaseUserAdmin):
         (None, {
             'fields': ('username', 'password')
         }),
+        ('AI Coach & Health', {
+            'fields': (
+                'is_ai_coach_enabled', 'experience_level', 'weight_kg', 
+                'height_cm', 'gender', 'primary_goal',
+                'resting_heart_rate', 'max_heart_rate', 'medical_conditions_or_injuries'
+            )
+        }),
         ('Personal Info', {
             'fields': ('first_name', 'last_name', 'email', 'bio', 'date_of_birth')
         }),

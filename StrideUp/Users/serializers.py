@@ -26,7 +26,7 @@ class UserMinimalSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """User's profile with follow stats."""
+    """User's profile with follow stats and badges."""
     
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
@@ -34,6 +34,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     is_following = serializers.SerializerMethodField()
     is_followed_by = serializers.SerializerMethodField()
     follow_status = serializers.SerializerMethodField()
+    #badges = serializers.SerializerMethodField()
+    #badges_count = serializers.SerializerMethodField()
     
     class Meta:
         model = User
@@ -41,20 +43,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'username', 'full_name', 'bio', 'profile_picture',
             'is_private', 'followers_count', 'following_count',
             'is_following', 'is_followed_by', 'follow_status',
+            #'badges', 'badges_count',
             'created_at'
         ]
     
     def get_is_following(self, obj):
-        """Checks if the requesting user is following this user."""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             if request.user == obj:
-                return None  # Same user
+                return None
             return request.user.is_following(obj)
         return False
     
     def get_is_followed_by(self, obj):
-        """Checks if this user is following the requesting user."""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             if request.user == obj:
@@ -63,24 +64,31 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return False
     
     def get_follow_status(self, obj):
-        """
-        Returns the follow status between requesting user and this user.
-        Values: 'self', 'following', 'requested', 'not_following'
-        """
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return 'not_following'
-        
         if request.user == obj:
             return 'self'
-        
         if request.user.is_following(obj):
             return 'following'
-        
         if request.user.has_pending_follow_request_to(obj):
             return 'requested'
-        
         return 'not_following'
+    
+    #def get_badges(self, obj):
+    #    """Returns the user's most recent 6 earned badges."""
+    #   from achievements.models import UserBadge
+    #   from achievements.serializers import UserBadgeSerializer
+        
+    #   recent = UserBadge.objects.filter(
+    #       user=obj
+    #   ).select_related('badge').order_by('-earned_at')[:6]
+    #   return UserBadgeSerializer(recent, many=True).data
+    
+    #def get_badges_count(self, obj):
+    #   """Returns total number of badges earned."""
+    #   from achievements.models import UserBadge
+    #   return UserBadge.objects.filter(user=obj).count()
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating user profile."""
@@ -94,6 +102,9 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             'profile_picture', 
             'is_private',
             'date_of_birth',
+            'is_ai_coach_enabled', 'weight_kg', 'height_cm', 'gender', 
+            'resting_heart_rate', 'max_heart_rate', 'experience_level', 
+            'primary_goal', 'medical_conditions_or_injuries',
         ]
         extra_kwargs = {
             'first_name': {'required': False},
@@ -102,6 +113,15 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             'profile_picture': {'required': False},
             'is_private': {'required': False},
             'date_of_birth': {'required': False},
+            'is_ai_coach_enabled': {'required': False},
+            'weight_kg': {'required': False},
+            'height_cm': {'required': False},
+            'gender': {'required': False},
+            'resting_heart_rate': {'required': False},
+            'max_heart_rate': {'required': False},
+            'experience_level': {'required': False},
+            'primary_goal': {'required': False},
+            'medical_conditions_or_injuries': {'required': False},
         }
 
 class FollowSerializer(serializers.ModelSerializer):
