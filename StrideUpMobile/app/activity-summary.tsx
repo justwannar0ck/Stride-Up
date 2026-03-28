@@ -108,6 +108,41 @@ export default function ActivitySummaryScreen() {
     }
   };
 
+  const handleDiscussMore = () => {
+    if (!activity) return;
+
+    Alert.alert(
+      'Save Activity First',
+      'Do you want to save your current title and description before discussing this with the AI Coach?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save & Chat',
+          onPress: async () => {
+            setIsSaving(true);
+            try {
+              await api.patch(`/api/v1/activities/${activity.id}/`, {
+                title,
+                description,
+                visibility,
+                hide_start_end: hideStartEnd,
+              });
+              router.push({ 
+                pathname: '/ai-coach', 
+                params: { activityId: activity.id.toString() } 
+              });
+            } catch (error) {
+              console.error('Failed to sync before chat:', error);
+              Alert.alert('Error', 'Could not save your activity details. Please try again.');
+            } finally {
+              setIsSaving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleShare = async () => {
     if (!activity) return;
 
@@ -206,6 +241,14 @@ export default function ActivitySummaryScreen() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const getQuickSummary = () => {
+    if (!activity) return "";
+    const type = activity.activity_type;
+    if (activity.distance_km > 10) return `Incredible distance on this ${type}! You covered ${activity.distance_km}km.`;
+    if (activity.average_speed > 15 && type === 'cycle') return `Great speed! You averaged ${activity.average_speed.toFixed(1)} km/h.`;
+    return `Solid ${type} session today! You completed ${activity.distance_km}km in ${activity.duration_formatted}.`;
   };
 
   if (isLoading) {
@@ -337,6 +380,30 @@ export default function ActivitySummaryScreen() {
         <View style={styles.dateContainer}>
           <Ionicons name="calendar-outline" size={18} color="#8a8d6a" />
           <Text style={styles.dateText}>{formatDate(activity.started_at)}</Text>
+        </View>
+
+        {/* --- AI COACH INSIGHT BANNER --- */}
+        <View style={styles.aiCoachBanner}>
+          <View style={styles.aiCoachBannerTextContainer}>
+            <Text style={styles.aiCoachBannerTitle}>✨ AI Coach Insights</Text>
+            <Text style={styles.aiCoachBannerDesc}>
+              {getQuickSummary()} Let's break down your pacing and elevation.
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={[styles.discussMoreButton, isSaving && styles.buttonDisabled]} 
+            onPress={handleDiscussMore}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#4a4d2e" />
+            ) : (
+              <>
+                <Text style={styles.discussMoreText}>Discuss</Text>
+                <Ionicons name="arrow-forward" size={14} color="#4a4d2e" />
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={styles.inputContainer}>
@@ -585,6 +652,48 @@ const styles = StyleSheet.create({
     color: '#b8c4a8',
     fontSize: 14,
     marginLeft: 8,
+  },
+  aiCoachBanner: {
+    backgroundColor: 'rgba(217, 227, 208, 0.12)', 
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 227, 208, 0.25)',
+  },
+  aiCoachBannerTextContainer: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  aiCoachBannerTitle: {
+    color: '#d9e3d0',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  aiCoachBannerDesc: {
+    color: '#b8c4a8',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  discussMoreButton: {
+    backgroundColor: '#d9e3d0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minWidth: 90,
+  },
+  discussMoreText: {
+    color: '#4a4d2e',
+    fontWeight: '700',
+    fontSize: 13,
+    marginRight: 4,
   },
   inputContainer: {
     marginBottom: 16,

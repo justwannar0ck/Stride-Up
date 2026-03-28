@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import api from '../api';
+import PointsWidget from '../components/PointsWidget';
 
 interface UserStats {
   total_activities: number;
@@ -137,6 +138,8 @@ export default function HomeScreen() {
         <Text style={styles.pageTitle}>Home</Text>
       </View>
 
+      <PointsWidget />
+        
       <View style={styles.weeklyCard}>
         <View style={styles.weeklyHeader}>
           <Text style={styles.weeklyTitle}>This Week</Text>

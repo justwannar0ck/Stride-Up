@@ -67,6 +67,20 @@ function RootLayoutNav() {
           presentation: 'modal',
         }}
       />
+      <Stack.Screen
+        name="rewards"
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen 
+        name="ai-coach" 
+        options={{ 
+          headerShown: false,
+          presentation: 'modal', // Slides up nicely for chat!
+        }} 
+      />
     </Stack>
   );
 }
