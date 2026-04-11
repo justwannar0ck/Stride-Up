@@ -23,59 +23,87 @@ export default function PointsWidget() {
     }
   };
 
+  // Fallback to Gold if tier data isn't loaded yet
+  const themeColor = balance?.tier?.color_hex || '#FFD700';
+  const rankName = balance?.tier?.name || 'Unranked';
+  const iconName = (balance?.tier?.icon_name as any) || 'star';
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { borderColor: themeColor }]}>
+      
+      {/* Top Row: Rank Identity & Redeem Action */}
       <View style={styles.topRow}>
-        <View style={styles.pointsInfo}>
-          <Ionicons name="star" size={22} color="#FFD700" />
-          <Text style={styles.pointsLabel}>My Points</Text>
+        <View style={styles.rankInfo}>
+          <Ionicons name={iconName} size={24} color={themeColor} />
+          <Text style={[styles.rankLabel, { color: themeColor }]}>{rankName} Rank</Text>
         </View>
         <TouchableOpacity
           style={styles.redeemButton}
           onPress={() => router.push('/rewards')}
         >
           <Ionicons name="gift-outline" size={16} color="#4a4d2e" />
-          <Text style={styles.redeemText}>Redeem</Text>
+          <Text style={styles.redeemText}>Rewards</Text>
         </TouchableOpacity>
       </View>
 
+      {/* Middle Row: Spendable Balance */}
       <View style={styles.balanceRow}>
         <Text style={styles.balanceValue}>
           {balance?.balance ?? 0}
         </Text>
-        <Text style={styles.balanceUnit}>pts</Text>
+        <Text style={styles.balanceUnit}>spendable pts</Text>
       </View>
 
-      <Text style={styles.lifetimeText}>
-        Lifetime earned: {balance?.lifetime_earned ?? 0} pts
-      </Text>
+      {/* Bottom Row: Progress Bar to Next Rank */}
+      {balance?.next_tier && (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.lifetimeText}>
+              Lifetime: {balance?.lifetime_earned ?? 0} pts
+            </Text>
+            <Text style={styles.nextTierText}>
+              {balance.next_tier.name} at {balance.next_tier.min_lifetime_points}
+            </Text>
+          </View>
+          
+          <View style={styles.progressBarBg}>
+            <View 
+              style={[
+                styles.progressBarFill, 
+                { 
+                  width: `${balance?.progress_percentage ?? 0}%`, 
+                  backgroundColor: themeColor 
+                }
+              ]} 
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.15)',
+    borderWidth: 1.5,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  pointsInfo: {
+  rankInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  pointsLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#d9e3d0',
+  rankLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
     marginLeft: 8,
   },
   redeemButton: {
@@ -95,20 +123,43 @@ const styles = StyleSheet.create({
   balanceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginBottom: 16,
   },
   balanceValue: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#FFD700',
+    color: '#d9e3d0',
   },
   balanceUnit: {
     fontSize: 16,
     color: '#8a8d6a',
-    marginLeft: 6,
+    marginLeft: 8,
+  },
+  progressContainer: {
+    marginTop: 4,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   lifetimeText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#8a8d6a',
-    marginTop: 6,
+  },
+  nextTierText: {
+    fontSize: 13,
+    color: '#8a8d6a',
+    fontWeight: '600',
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
   },
 });

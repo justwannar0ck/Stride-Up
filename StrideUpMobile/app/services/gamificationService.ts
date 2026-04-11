@@ -2,11 +2,21 @@ import api from '../api';
 
 // Types
 
+export interface RankTier {
+  name: string;
+  color_hex: string;
+  icon_name: string;
+  min_lifetime_points: number;
+}
+
 export interface PointBalance {
   username: string;
   balance: number;
   lifetime_earned: number;
   updated_at: string;
+  tier?: RankTier | null;
+  next_tier?: RankTier | null;
+  progress_percentage?: number;
 }
 
 export interface SampleVoucher {
