@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
+import { AIPredictionCard } from "../components/AIPredictionCard";
 import { useActivity } from "../context/ActivityContext";
 
 const { width, height } = Dimensions.get("window");
@@ -505,46 +506,60 @@ export default function TrackScreen() {
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.mainStat}>
-          <Text style={styles.mainStatValue}>
-            {(distance / 1000).toFixed(2)}
-          </Text>
-          <Text style={styles.mainStatUnit}>km</Text>
-        </View>
-
-        <View style={styles.secondaryStats}>
-          <View style={styles.secondaryStat}>
-            <Text style={styles.secondaryStatValue}>
-              {formatTime(activeTime)}
-            </Text>
-            <Text style={styles.secondaryStatLabel}>Duration</Text>
+        {status === "idle" ? (
+          // BEFORE THEY START: Shows the AI ML Prediction Card
+          <View
+            style={{ width: "100%", paddingHorizontal: 16, marginTop: -10 }}
+          >
+            <AIPredictionCard />
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.secondaryStat}>
-            <Text style={styles.secondaryStatValue}>
-              {formatPace(averagePace)}
-            </Text>
-            <Text style={styles.secondaryStatLabel}>Pace /km</Text>
-          </View>
-        </View>
-
-        {status !== "idle" && (
-          <View style={styles.additionalStats}>
-            <View style={styles.additionalStat}>
-              <Ionicons name="speedometer-outline" size={16} color="#8a8d6a" />
-              <Text style={styles.additionalStatValue}>
-                {(currentSpeed * 3.6).toFixed(1)} km/h
+        ) : (
+          // WHILE RUNNING: Shows the Live Tracking Stats
+          <>
+            <View style={styles.mainStat}>
+              <Text style={styles.mainStatValue}>
+                {(distance / 1000).toFixed(2)}
               </Text>
+              <Text style={styles.mainStatUnit}>km</Text>
             </View>
-            {elevation !== null && (
+
+            <View style={styles.secondaryStats}>
+              <View style={styles.secondaryStat}>
+                <Text style={styles.secondaryStatValue}>
+                  {formatTime(activeTime)}
+                </Text>
+                <Text style={styles.secondaryStatLabel}>Duration</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.secondaryStat}>
+                <Text style={styles.secondaryStatValue}>
+                  {formatPace(averagePace)}
+                </Text>
+                <Text style={styles.secondaryStatLabel}>Pace /km</Text>
+              </View>
+            </View>
+
+            <View style={styles.additionalStats}>
               <View style={styles.additionalStat}>
-                <Ionicons name="trending-up" size={16} color="#8a8d6a" />
+                <Ionicons
+                  name="speedometer-outline"
+                  size={16}
+                  color="#8a8d6a"
+                />
                 <Text style={styles.additionalStatValue}>
-                  {Math.round(elevation)} m
+                  {(currentSpeed * 3.6).toFixed(1)} km/h
                 </Text>
               </View>
-            )}
-          </View>
+              {elevation !== null && (
+                <View style={styles.additionalStat}>
+                  <Ionicons name="trending-up" size={16} color="#8a8d6a" />
+                  <Text style={styles.additionalStatValue}>
+                    {Math.round(elevation)} m
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
         )}
       </View>
 
