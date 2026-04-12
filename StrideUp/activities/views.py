@@ -1,3 +1,5 @@
+import pandas as pd
+from django.apps import apps as django_apps
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -733,4 +735,83 @@ class ActivityLikesListView(APIView):
         return Response({
             'count': len(users),
             'results': users
+        })
+        
+class MLPredictionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        
+        # Fetch user's completed runs safely without touching other code
+        runs = Activity.objects.filter(
+            user=user, 
+            activity_type=Activity.ActivityType.RUN,
+            status=Activity.Status.COMPLETED,
+            started_at__gte=thirty_days_ago,
+            distance__gte=500  # Must be > 0.5km (500 meters)
+        ).order_by('started_at')
+
+        # If user doesn't have enough data, returns a default safe response
+        if runs.count() < 3:
+            return Response({
+                "message": "Not enough valid running data for ML prediction.",
+                "target_distance": 3.0,
+                "target_pace": 6.5,
+                "chronic_load": 0,
+                "dist_last_7d": 0,
+                "status": "baseline"
+            })
+
+        # This adapts the existing create_features logic
+        data = [{
+            'date': r.started_at.date(),
+            'distance_km': r.distance_km,  # using the property from models.py
+            'pace_min_per_km': (r.duration.total_seconds() / 60) / r.distance_km if r.distance_km > 0 else 0
+        } for r in runs if r.distance_km > 0]
+        
+        df = pd.DataFrame(data)
+        df.set_index('date', inplace=True)
+        df.index = pd.to_datetime(df.index)
+
+        dist_last_30d = df['distance_km'].sum()
+        dist_last_7d = df[df.index >= pd.Timestamp(timezone.now().date() - timedelta(days=7))]['distance_km'].sum()
+        chronic_load = dist_last_30d / 4.0
+        acwr = dist_last_7d / (chronic_load + 0.1)
+        
+        days_since_last_run = (timezone.now().date() - df.index.max().date()).days
+        is_weekend = 1 if timezone.now().weekday() in [5, 6] else 0
+
+        # Constructing the feature array in the exact order the model was trained
+        X = pd.DataFrame([{
+            'dist_last_7d': dist_last_7d,
+            'dist_last_30d': dist_last_30d,
+            'avg_pace_last_30d': df['pace_min_per_km'].mean(),
+            'ACWR': acwr,
+            'days_since_last_run': days_since_last_run,
+            'day_of_week': timezone.now().weekday(),
+            'runs_last_30d': len(df),
+            'avg_pace_last_7d': df[df.index >= pd.Timestamp(timezone.now().date() - timedelta(days=7))]['pace_min_per_km'].mean(),
+            'max_dist_last_30d': df['distance_km'].max(),
+            'is_weekend': is_weekend
+        }]).fillna(0)
+
+        # Gets the ML App Config and Prediction
+        activities_app = django_apps.get_app_config('activities')
+        regressor = activities_app.pace_regressor
+        classifier = activities_app.distance_classifier
+        
+        pred = regressor.predict(X)[0]
+        dist_class = classifier.predict(X)[0]
+
+        class_map = {0: "Short (<5km)", 1: "Medium (5-15km)", 2: "Long (>15km)"}
+
+        return Response({
+            "predicted_class": class_map.get(dist_class, "Medium"),
+            "target_distance": round(pred[0], 2),
+            "target_pace": round(pred[1], 2),
+            "chronic_load": round(chronic_load, 2),
+            "dist_last_7d": round(dist_last_7d, 2),
+            "acwr": round(acwr, 2)
         })
